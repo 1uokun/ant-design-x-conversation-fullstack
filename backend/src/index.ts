@@ -35,7 +35,7 @@ app.use(
 app.get("/api/v1/session/page/list", async (c) => {
   const userId = Number(c.req.query("userId") ?? "0");
   const list = await listSessions(c.env.DB, userId);
-  return jsonOk({ page: {}, list });
+  return jsonOk({ list });
 });
 
 app.post("/api/v1/session/update", async (c) => {
@@ -64,7 +64,7 @@ app.get("/api/v1/session/msg/list", async (c) => {
   if (!sessionId) return jsonError("sessionId 不能为空");
 
   const list = await listMessageTurns(c.env.DB, sessionId);
-  return jsonOk({ page: {}, list });
+  return jsonOk({ list });
 });
 
 app.post("/api/v1/session/msg/delete", async (c) => {

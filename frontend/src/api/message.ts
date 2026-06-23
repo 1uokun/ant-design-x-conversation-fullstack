@@ -12,9 +12,8 @@ export type ApiResponse<T> = {
   message?: string;
 };
 
-/** 分页列表 */
-export type PageList<T> = {
-  page?: Record<string, unknown>;
+/** 列表响应（无分页） */
+export type ListData<T> = {
   list: T[];
 };
 
@@ -188,7 +187,7 @@ export function buildChatRequestParams(
   };
 }
 
-const API_BASE = "/api/v1";
+import { API_BASE } from "./config";
 
 async function requestJson<T>(
   path: string,
@@ -203,7 +202,7 @@ async function requestJson<T>(
 
 /** 会话列表 */
 export async function fetchSessionList(userId: number) {
-  const res = await requestJson<PageList<Session>>(
+  const res = await requestJson<ListData<Session>>(
     `/session/page/list?userId=${encodeURIComponent(String(userId))}`,
   );
   if (!res.success || !res.data) {
@@ -234,7 +233,7 @@ export async function deleteSession(sessionId: string) {
 
 /** 消息轮次列表 */
 export async function fetchMessageList(sessionId: string) {
-  const res = await requestJson<PageList<MessageTurn>>(
+  const res = await requestJson<ListData<MessageTurn>>(
     `/session/msg/list?sessionId=${encodeURIComponent(sessionId)}`,
   );
   if (!res.success || !res.data) {

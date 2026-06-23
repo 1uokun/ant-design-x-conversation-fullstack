@@ -421,7 +421,7 @@ const Independent: React.FC = () => {
   const {
     conversations,
     activeConversationKey,
-    setActiveConversationKey,
+    selectConversation,
     messages,
     isRequesting,
     isDefaultMessagesRequesting,
@@ -499,7 +499,7 @@ const Independent: React.FC = () => {
         }))}
         className={styles.conversations}
         activeKey={activeConversationKey}
-        onActiveChange={setActiveConversationKey}
+        onActiveChange={selectConversation}
         groupable
         styles={{ item: { padding: '0 8px' } }}
         menu={(conversation) => ({

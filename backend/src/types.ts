@@ -4,8 +4,7 @@ export type ApiResponse<T> = {
   message?: string;
 };
 
-export type PageList<T> = {
-  page?: Record<string, unknown>;
+export type ListData<T> = {
   list: T[];
 };
 

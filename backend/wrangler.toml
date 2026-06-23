@@ -10,12 +10,12 @@ DEFAULT_MODEL = "deepseek-chat"
 [[d1_databases]]
 binding = "DB"
 database_name = "ant-design-x-conversation"
-database_id = "local-dev-placeholder"
+database_id = "44eaa854-3b7a-4419-b3cd-939ce3430393"
 migrations_dir = "db/migrations"
 
 [[kv_namespaces]]
 binding = "STREAM_KV"
-id = "local-dev-placeholder"
+id = "5cb69b54c84b4c369495e2718c69c360"
 
 [dev]
 port = 8787

@@ -1,7 +1,7 @@
 import type { ActionsFeedbackProps } from "@ant-design/x";
 import { useXChat, useXConversations, type DefaultMessageInfo } from "@ant-design/x-sdk";
 import type { MessageInstance } from "antd/es/message/interface";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   abortChat,
   buildChatRequestParams,
@@ -25,6 +25,10 @@ import {
   sessionToConversation,
 } from "../chat/session";
 import { generateSessionId } from "../utils/id";
+import {
+  getSessionIdFromPath,
+  syncChatPath,
+} from "../utils/route";
 
 export type AppChatMessage = {
   role: string;
@@ -45,7 +49,18 @@ type UseConversationChatOptions = {
   messageApi: MessageInstance;
 };
 
+function findConversationBySessionId(
+  list: Conversation[],
+  sessionId: string,
+): Conversation | undefined {
+  return list.find((item) => item.key === sessionId);
+}
+
 export function useConversationChat({ messageApi }: UseConversationChatOptions) {
+  const routeSessionIdRef = useRef(getSessionIdFromPath());
+  const skipUrlSyncRef = useRef(false);
+  const [routeReady, setRouteReady] = useState(false);
+
   const {
     conversations,
     activeConversationKey,
@@ -74,9 +89,47 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     const prevKey = prevActiveConversationKeyRef.current;
     if (prevKey && !activeConversationKey) {
       setDraftChatKey(generateSessionId());
+      routeSessionIdRef.current = null;
     }
     prevActiveConversationKeyRef.current = activeConversationKey;
   }, [activeConversationKey]);
+
+  useLayoutEffect(() => {
+    const sessionIdFromPath = getSessionIdFromPath();
+    if (sessionIdFromPath) {
+      routeSessionIdRef.current = sessionIdFromPath;
+      setActiveConversationKey(sessionIdFromPath);
+    }
+    setRouteReady(true);
+  }, [setActiveConversationKey]);
+
+  useEffect(() => {
+    if (!routeReady) return;
+    if (skipUrlSyncRef.current) {
+      skipUrlSyncRef.current = false;
+      return;
+    }
+    syncChatPath(activeConversationKey || null);
+  }, [activeConversationKey, routeReady]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      skipUrlSyncRef.current = true;
+      const sessionId = getSessionIdFromPath();
+      routeSessionIdRef.current = sessionId;
+      setActiveConversationKey(sessionId || "");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [setActiveConversationKey]);
+
+  const selectConversation = useCallback(
+    (key: string) => {
+      routeSessionIdRef.current = null;
+      setActiveConversationKey(key);
+    },
+    [setActiveConversationKey],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +145,19 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         setConversations(
           mergeServerAndLocalConversations(list, localConversationsRef.current),
         );
+
+        const routeSessionId = routeSessionIdRef.current;
+        if (routeSessionId && !findConversationBySessionId(list, routeSessionId)) {
+          try {
+            await fetchMessageList(routeSessionId);
+          } catch {
+            if (!cancelled) {
+              messageApi.error("会话不存在或已删除");
+              routeSessionIdRef.current = null;
+              setActiveConversationKey("");
+            }
+          }
+        }
       } catch {
         if (!cancelled) messageApi.error("加载会话列表失败");
       }
@@ -100,7 +166,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     return () => {
       cancelled = true;
     };
-  }, [messageApi, setConversations]);
+  }, [messageApi, setConversations, setActiveConversationKey]);
 
   const upsertLocalConversation = useCallback(
     (conversation: Conversation) => {
@@ -129,7 +195,8 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     [setConversation],
   );
 
-  const chatConversationKey = activeConversationKey || draftChatKey;
+  const chatConversationKey =
+    activeConversationKey || routeSessionIdRef.current || draftChatKey;
 
   const {
     messages,
@@ -148,7 +215,12 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     conversationKey: chatConversationKey,
     defaultMessages: async (info?: { conversationKey?: string }) => {
       const conversationKey = info?.conversationKey;
-      if (!conversationKey || !activeConversationKeyRef.current) return [];
+      if (!conversationKey) return [];
+
+      const targetKey = activeConversationKeyRef.current || routeSessionIdRef.current;
+      if (!targetKey || conversationKey !== targetKey) {
+        return [];
+      }
       if (localConversationsRef.current.some((item) => item.key === conversationKey)) {
         return [];
       }
@@ -237,6 +309,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
       messageApi.error(locale.itIsNowANewConversation);
       return;
     }
+    routeSessionIdRef.current = null;
     setActiveConversationKey("");
   }, [activeConversationKey, messageApi, setActiveConversationKey]);
 
@@ -300,7 +373,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   return {
     conversations: sortedConversations,
     activeConversationKey,
-    setActiveConversationKey,
+    selectConversation,
     messages,
     isRequesting,
     isDefaultMessagesRequesting,
