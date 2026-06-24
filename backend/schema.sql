@@ -1,4 +1,4 @@
--- ant-design-x-conversation-fullstack 数据库表结构
+-- ant-design-x-agent-ui 数据库表结构
 --
 -- 设计说明：
 -- - 一轮 AI 对话 = 一条 x_message（一问一答），而非传统 IM 的两条独立消息

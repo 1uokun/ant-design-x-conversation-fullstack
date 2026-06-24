@@ -1,5 +1,5 @@
 -- Migration: initial schema
--- ant-design-x-conversation-fullstack
+-- ant-design-x-agent-ui
 
 CREATE TABLE IF NOT EXISTS x_session (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

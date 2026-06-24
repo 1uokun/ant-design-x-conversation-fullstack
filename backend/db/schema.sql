@@ -1,4 +1,4 @@
--- ant-design-x-conversation-fullstack D1 (SQLite) schema
+-- ant-design-x-agent-ui D1 (SQLite) schema
 --
 -- 设计说明：
 -- - 一轮 AI 对话 = 一条 x_message（一问一答）

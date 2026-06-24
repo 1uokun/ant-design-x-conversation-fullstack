@@ -11,7 +11,7 @@
 ## 项目结构
 
 ```
-ant-design-x-conversation-fullstack/
+ant-design-x-agent-ui/
 ├── frontend/          # React + Vite 静态站点
 ├── backend/           # Cloudflare Workers API + D1 + KV
 ├── README.md          # 项目设计与数据模型
@@ -27,12 +27,12 @@ ant-design-x-conversation-fullstack/
 
 ### 技术栈
 
-| 组件 | 用途 |
-| ---- | ---- |
-| Workers | HTTP API、SSE 流式转发 |
-| D1 (SQLite) | 会话 / 消息 / 内容持久化 |
-| KV | 流式 token 缓冲、abort 标记、finalize 锁 |
-| Hono | 路由与中间件 |
+| 组件        | 用途                                     |
+| ----------- | ---------------------------------------- |
+| Workers     | HTTP API、SSE 流式转发                   |
+| D1 (SQLite) | 会话 / 消息 / 内容持久化                 |
+| KV          | 流式 token 缓冲、abort 标记、finalize 锁 |
+| Hono        | 路由与中间件                             |
 
 ### 目录结构
 
@@ -92,11 +92,11 @@ OPENAI_BASE_URL=https://api.deepseek.com/v1
 DEFAULT_MODEL=deepseek-chat
 ```
 
-| 变量 | 必填 | 本地 | 线上 | 说明 |
-| ---- | ---- | ---- | ---- | ---- |
-| `OPENAI_API_KEY` | 是 | `.dev.vars` | `wrangler secret put` | 大模型 API Key |
-| `OPENAI_BASE_URL` | 否 | `.dev.vars` | `wrangler.toml [vars]` 或 Secret | 兼容 API 地址，默认 `https://api.openai.com/v1` |
-| `DEFAULT_MODEL` | 否 | `.dev.vars` | `wrangler.toml [vars]` | 默认模型名 |
+| 变量              | 必填 | 本地        | 线上                             | 说明                                            |
+| ----------------- | ---- | ----------- | -------------------------------- | ----------------------------------------------- |
+| `OPENAI_API_KEY`  | 是   | `.dev.vars` | `wrangler secret put`            | 大模型 API Key                                  |
+| `OPENAI_BASE_URL` | 否   | `.dev.vars` | `wrangler.toml [vars]` 或 Secret | 兼容 API 地址，默认 `https://api.openai.com/v1` |
+| `DEFAULT_MODEL`   | 否   | `.dev.vars` | `wrangler.toml [vars]`           | 默认模型名                                      |
 
 `wrangler.toml` 中的 Cloudflare 绑定（本地开发自动模拟，上线前需替换真实 ID）：
 
@@ -112,28 +112,28 @@ id = "<线上 KV ID>"
 
 ### 命令一览
 
-| 命令 | 说明 |
-| ---- | ---- |
-| `npm run dev` | 启动本地 Worker（:8787） |
-| `npm run typecheck` | TypeScript 类型检查 |
-| `npm run db:migrate:local` | 应用迁移到本地 D1 |
-| `npm run db:migrate:remote` | 应用迁移到线上 D1 |
-| `npm run deploy` | 部署 Worker 到 Cloudflare |
+| 命令                        | 说明                      |
+| --------------------------- | ------------------------- |
+| `npm run dev`               | 启动本地 Worker（:8787）  |
+| `npm run typecheck`         | TypeScript 类型检查       |
+| `npm run db:migrate:local`  | 应用迁移到本地 D1         |
+| `npm run db:migrate:remote` | 应用迁移到线上 D1         |
+| `npm run deploy`            | 部署 Worker 到 Cloudflare |
 
 ### API 端点
 
 Base path：`/api/v1`。类型定义见 `frontend/src/api/message.ts`，完整契约见 [PROMPT.md](./PROMPT.md)。
 
-| 方法 | 路径 | 说明 |
-| ---- | ---- | ---- |
-| GET | `/api/v1/session/page/list?userId=` | 会话列表 |
-| POST | `/api/v1/session/update` | 更新标题 / 置顶 |
-| POST | `/api/v1/session/delete` | 删除会话 |
-| GET | `/api/v1/session/msg/list?sessionId=` | 消息轮次列表 |
-| POST | `/api/v1/session/msg/delete` | 删除一轮对话 |
-| POST | `/api/v1/session/msg/feedback` | 点赞 / 点踩 |
-| POST | `/api/v1/chat` | SSE 流式对话 |
-| POST | `/api/v1/chat/abort` | 停止生成 |
+| 方法 | 路径                                  | 说明            |
+| ---- | ------------------------------------- | --------------- |
+| GET  | `/api/v1/session/page/list?userId=`   | 会话列表        |
+| POST | `/api/v1/session/update`              | 更新标题 / 置顶 |
+| POST | `/api/v1/session/delete`              | 删除会话        |
+| GET  | `/api/v1/session/msg/list?sessionId=` | 消息轮次列表    |
+| POST | `/api/v1/session/msg/delete`          | 删除一轮对话    |
+| POST | `/api/v1/session/msg/feedback`        | 点赞 / 点踩     |
+| POST | `/api/v1/chat`                        | SSE 流式对话    |
+| POST | `/api/v1/chat/abort`                  | 停止生成        |
 
 非 SSE 接口统一响应：
 
@@ -242,7 +242,7 @@ npm run preview            # 本地预览 dist
 
 GitHub Pages 步骤：
 
-1. 执行 `npm run build:gh-pages`（仓库名非 `ant-design-x-conversation-fullstack` 时需改 `package.json` 中 `VITE_BASE`）
+1. 执行 `npm run build:gh-pages`（仓库名非 `ant-design-x-agent-ui` 时需改 `package.json` 中 `VITE_BASE`）
 2. 将 `frontend/dist/` 推送到 `gh-pages` 分支，或使用 GitHub Actions
 3. 仓库 Settings → Pages → Source 选 `gh-pages` / `(root)`
 
