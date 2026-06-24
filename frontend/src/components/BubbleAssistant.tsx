@@ -1,34 +1,34 @@
-import { GlobalOutlined, SyncOutlined } from '@ant-design/icons';
-import type { BubbleListProps, ThoughtChainItemProps } from '@ant-design/x';
-import { Actions, Think, ThoughtChain } from '@ant-design/x';
-import type { ComponentProps } from '@ant-design/x-markdown';
-import XMarkdown from '@ant-design/x-markdown';
-import { message, Pagination } from 'antd';
-import React from 'react';
-import locale from '../_utils/local';
-import type { AppChatMessage } from '../hooks/useConversationChat';
-import { ChatContext } from './ChatContext';
+import { GlobalOutlined, SyncOutlined } from "@ant-design/icons";
+import type { BubbleListProps, ThoughtChainItemProps } from "@ant-design/x";
+import { Actions, Think, ThoughtChain } from "@ant-design/x";
+import type { ComponentProps } from "@ant-design/x-markdown";
+import XMarkdown from "@ant-design/x-markdown";
+import { message, Pagination } from "antd";
+import React from "react";
+import locale from "../_utils/local";
+import type { AppChatMessage } from "../hooks/useConversationChat";
+import { ChatContext } from "./ChatContext";
 
 const THOUGHT_CHAIN_CONFIG = {
   loading: {
     title: locale.modelIsRunning,
-    status: 'loading',
+    status: "loading",
   },
   updating: {
     title: locale.modelIsRunning,
-    status: 'loading',
+    status: "loading",
   },
   success: {
     title: locale.modelExecutionCompleted,
-    status: 'success',
+    status: "success",
   },
   error: {
     title: locale.executionFailed,
-    status: 'error',
+    status: "error",
   },
   abort: {
     title: locale.aborted,
-    status: 'abort',
+    status: "abort",
   },
 };
 
@@ -37,7 +37,7 @@ const ThinkComponent = React.memo((props: ComponentProps) => {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (props.streamStatus === 'done') {
+    if (props.streamStatus === "done") {
       setTitle(locale.completeThinking);
       setLoading(false);
     }
@@ -54,32 +54,32 @@ const Footer: React.FC<{
   id?: string | number;
   content: string;
   status?: string;
-  extraInfo?: AppChatMessage['extraInfo'];
+  extraInfo?: AppChatMessage["extraInfo"];
 }> = ({ id, content, extraInfo, status }) => {
   const context = React.useContext(ChatContext);
   const Items = [
     {
-      key: 'pagination',
+      key: "pagination",
       actionRender: <Pagination simple total={1} pageSize={1} />,
     },
     {
-      key: 'retry',
+      key: "retry",
       label: locale.retry,
       icon: <SyncOutlined />,
       onItemClick: () => {
         if (id) {
           context?.onReload?.(id, {
-            userAction: 'retry',
+            userAction: "retry",
           });
         }
       },
     },
     {
-      key: 'copy',
+      key: "copy",
       actionRender: <Actions.Copy text={content} />,
     },
     {
-      key: 'audio',
+      key: "audio",
       actionRender: (
         <Actions.Audio
           onClick={() => {
@@ -89,24 +89,27 @@ const Footer: React.FC<{
       ),
     },
     {
-      key: 'feedback',
+      key: "feedback",
       actionRender: (
         <Actions.Feedback
           styles={{
             liked: {
-              color: '#f759ab',
+              color: "#f759ab",
             },
           }}
-          value={extraInfo?.feedback || 'default'}
+          value={extraInfo?.feedback || "default"}
           key="feedback"
           onChange={(val) => {
-            if (id && val !== 'default') {
-              const messageId = String(id).replace(/-request$/, '');
+            if (id && val !== "default") {
+              const messageId = String(id).replace(/-request$/, "");
               context?.setMessage?.(id, () => ({
                 extraInfo: { feedback: val },
               }));
-              if (val === 'like' || val === 'dislike') {
-                context?.onFeedback?.(messageId, val === 'like' ? 'good' : 'bad');
+              if (val === "like" || val === "dislike") {
+                context?.onFeedback?.(
+                  messageId,
+                  val === "like" ? "good" : "bad",
+                );
               }
             }
           }}
@@ -114,21 +117,40 @@ const Footer: React.FC<{
       ),
     },
   ];
-  return status !== 'updating' && status !== 'loading' ? (
-    <div style={{ display: 'flex' }}>{id && <Actions items={Items} />}</div>
+  return status !== "updating" && status !== "loading" ? (
+    <div style={{ display: "flex" }}>{id && <Actions items={Items} />}</div>
   ) : null;
 };
 
-export const getAssistantRole = (className: string): NonNullable<BubbleListProps['role']>['assistant'] => ({
-  placement: 'start',
+export const getAssistantRole = (
+  className: string,
+): NonNullable<BubbleListProps["role"]>["assistant"] => ({
+  placement: "start",
+  variant: "borderless",
+  styles: {
+    root: {
+      width: "100%",
+      maxWidth: "100%",
+      paddingInlineEnd: 0,
+    },
+    body: {
+      width: "100%",
+      maxWidth: "100%",
+    },
+    content: {
+      width: "100%",
+      maxWidth: "100%",
+    },
+  },
   header: (_, { status }) => {
-    const config = THOUGHT_CHAIN_CONFIG[status as keyof typeof THOUGHT_CHAIN_CONFIG];
+    const config =
+      THOUGHT_CHAIN_CONFIG[status as keyof typeof THOUGHT_CHAIN_CONFIG];
     return config ? (
       <ThoughtChain.Item
         style={{
           marginBottom: 8,
         }}
-        status={config.status as ThoughtChainItemProps['status']}
+        status={config.status as ThoughtChainItemProps["status"]}
         variant="solid"
         icon={<GlobalOutlined />}
         title={config.title}
@@ -139,26 +161,28 @@ export const getAssistantRole = (className: string): NonNullable<BubbleListProps
     <Footer
       content={content}
       status={status}
-      extraInfo={extraInfo as AppChatMessage['extraInfo']}
+      extraInfo={extraInfo as AppChatMessage["extraInfo"]}
       id={key as string}
     />
   ),
   contentRender: (content: string, { status }) => {
-    const newContent = content.replace(/\n\n/g, '<br/><br/>');
+    const newContent = content.replace(/\n\n/g, "<br/><br/>");
     return (
-      <XMarkdown
-        paragraphTag="div"
-        components={{
-          think: ThinkComponent,
-        }}
-        className={className}
-        streaming={{
-          hasNextChunk: status === 'updating',
-          enableAnimation: true,
-        }}
-      >
-        {newContent}
-      </XMarkdown>
+      <div style={{ width: "100%" }}>
+        <XMarkdown
+          paragraphTag="div"
+          components={{
+            think: ThinkComponent,
+          }}
+          className={`${className} `}
+          streaming={{
+            hasNextChunk: status === "updating",
+            enableAnimation: true,
+          }}
+        >
+          {newContent}
+        </XMarkdown>
+      </div>
     );
   },
 });

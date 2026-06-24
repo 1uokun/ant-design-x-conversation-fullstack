@@ -11,6 +11,7 @@ import type { ChatMessage, ChatRequestBody, ChatRoundMeta } from "../../api/mess
 import { toChatRequestMessages } from "../../api/message";
 import { generateMessageId } from "../../utils/id";
 import { DEFAULT_MODEL, DEFAULT_USER_ID } from "./types";
+import { syncChatModelName } from "./model-sync";
 
 export type ChatStreamOutput = Partial<Record<SSEFields, unknown>>;
 
@@ -59,7 +60,7 @@ function resolveRoundMeta(
       messageId,
       requestId,
       responseId,
-      modelName: modelName ?? DEFAULT_MODEL,
+      modelName: modelName ?? syncChatModelName.read() ?? DEFAULT_MODEL,
     };
   }
   if (isRetry) {
@@ -69,7 +70,7 @@ function resolveRoundMeta(
     messageId: generateMessageId(),
     requestId: generateMessageId(),
     responseId: generateMessageId(),
-    modelName: modelName ?? DEFAULT_MODEL,
+    modelName: modelName ?? syncChatModelName.read() ?? DEFAULT_MODEL,
   };
 }
 
@@ -100,7 +101,8 @@ class AppDeepSeekChatProvider extends DeepSeekChatProvider<
     const isRetry = requestParams.userAction === "retry";
     const messages = this.getMessages() as ChatMessage[];
     const roundMeta = resolveRoundMeta(requestParams, isRetry);
-    const modelName = requestParams.modelName || this.modelName || DEFAULT_MODEL;
+    const modelName =
+      requestParams.modelName || this.modelName || syncChatModelName.read() || DEFAULT_MODEL;
     this.pendingRoundMeta = { ...roundMeta, modelName };
 
     const userMessage = isRetry
@@ -150,8 +152,10 @@ export function createDeepSeekChatProvider(
       options?.userId ?? DEFAULT_USER_ID,
     );
     providerCaches.set(conversationKey, provider);
+    syncChatModelName.write(provider.modelName);
   } else if (options?.modelName) {
     provider.modelName = options.modelName;
+    syncChatModelName.write(options.modelName);
   }
   return provider;
 }

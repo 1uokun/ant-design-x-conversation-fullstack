@@ -8,6 +8,7 @@ import { ChatContext } from "./components/ChatContext";
 import ChatList from "./components/ChatList";
 import ConversationSide from "./components/Conversations";
 import ChatSender from "./components/Sender";
+import ModelSelector from "./components/ModelSelector";
 import { useConversationChat } from "./hooks/useConversationChat";
 import { useMarkdownTheme } from "./hooks/useMarkdownTheme";
 
@@ -37,7 +38,7 @@ const useStyle = createStyles(({ token, css }) => ({
       background-repeat: no-repeat;
       background-position: bottom;
     }
-  `,
+  `
 }));
 
 const Independent: React.FC = () => {
@@ -53,6 +54,8 @@ const Independent: React.FC = () => {
     messages,
     isRequesting,
     isDefaultMessagesRequesting,
+    modelKey,
+    setModelKey,
     onReload,
     setMessage,
     onSubmit: submitChat,
@@ -88,6 +91,11 @@ const Independent: React.FC = () => {
           onRename={handleRenameConversation}
         />
         <div className={styles.chat}>
+          <ModelSelector
+            value={modelKey}
+            onChange={setModelKey}
+            disabled={isRequesting}
+          />
           <ChatList
             listRef={listRef}
             isDefaultMessagesRequesting={isDefaultMessagesRequesting}

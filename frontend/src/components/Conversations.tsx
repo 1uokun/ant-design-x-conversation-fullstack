@@ -1,15 +1,19 @@
-import { DeleteOutlined, EditOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Conversations as AntConversations } from '@ant-design/x';
-import { Avatar, Button, Input, Modal } from 'antd';
-import { createStyles } from 'antd-style';
-import React, { useState } from 'react';
-import locale from '../_utils/local';
-import type { Conversation } from '../api/message';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  QuestionCircleOutlined,
+} from "@ant-design/icons";
+import { Conversations as AntConversations } from "@ant-design/x";
+import { Avatar, Button, Input, Modal } from "antd";
+import { createStyles } from "antd-style";
+import React, { useState } from "react";
+import locale from "../_utils/local";
+import type { Conversation } from "../api/message";
 
 const useStyle = createStyles(({ token, css }) => ({
   side: css`
     background: ${token.colorBgLayout}80;
-    width: 280px;
+    width: 256px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -68,13 +72,15 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
 }) => {
   const { styles } = useStyle();
   const [renameOpen, setRenameOpen] = useState(false);
-  const [renameKey, setRenameKey] = useState('');
-  const [renameValue, setRenameValue] = useState('');
+  const [renameKey, setRenameKey] = useState("");
+  const [renameValue, setRenameValue] = useState("");
   const [renameLoading, setRenameLoading] = useState(false);
 
   const handleOpenRename = (key: string, title?: string) => {
     setRenameKey(key);
-    setRenameValue(String(title || '').replace(`[${locale.curConversation}]`, ''));
+    setRenameValue(
+      String(title || "").replace(`[${locale.curConversation}]`, ""),
+    );
     setRenameOpen(true);
   };
 
@@ -91,8 +97,8 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
   const confirmDeleteConversation = (key: string) => {
     Modal.confirm({
       title: locale.delete,
-      okText: '确定',
-      cancelText: '取消',
+      okText: "确定",
+      cancelText: "取消",
       okButtonProps: { danger: true },
       onOk: () => onDelete(key),
     });
@@ -117,25 +123,32 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
           }}
           items={conversations.map(({ key, label, ...other }) => ({
             key,
-            label: key === activeConversationKey ? `[${locale.curConversation}]${label}` : label,
+            label:
+              key === activeConversationKey
+                ? `[${locale.curConversation}]${label}`
+                : label,
             ...other,
           }))}
           className={styles.conversations}
           activeKey={activeConversationKey}
           onActiveChange={onSelect}
           groupable
-          styles={{ item: { padding: '0 8px' } }}
+          styles={{ item: { padding: "0 8px" } }}
           menu={(conversation) => ({
             items: [
               {
                 label: locale.rename,
-                key: 'rename',
+                key: "rename",
                 icon: <EditOutlined />,
-                onClick: () => handleOpenRename(conversation.key, String(conversation.label ?? '')),
+                onClick: () =>
+                  handleOpenRename(
+                    conversation.key,
+                    String(conversation.label ?? ""),
+                  ),
               },
               {
                 label: locale.delete,
-                key: 'delete',
+                key: "delete",
                 icon: <DeleteOutlined />,
                 danger: true,
                 onClick: () => confirmDeleteConversation(conversation.key),

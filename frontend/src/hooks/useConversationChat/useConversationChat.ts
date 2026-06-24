@@ -13,6 +13,12 @@ import {
   type Conversation,
 } from "../../api/message";
 import locale from "../../_utils/local";
+import {
+  CHAT_MODEL_STORAGE_KEY,
+  DEFAULT_CHAT_MODEL_KEY,
+  findChatModelByKey,
+  resolveChatModelName,
+} from "../../config/chat-models";
 import { generateSessionId } from "../../utils/id";
 import {
   getSessionIdFromPath,
@@ -28,6 +34,7 @@ import {
   turnsToChatMessageInfos,
 } from "./adapters";
 import { createDeepSeekChatProvider } from "./provider";
+import { syncChatModelName } from "./model-sync";
 import type { AppChatMessage } from "./types";
 
 type UseConversationChatOptions = {
@@ -45,6 +52,19 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const routeSessionIdRef = useRef(getSessionIdFromPath());
   const skipUrlSyncRef = useRef(false);
   const [routeReady, setRouteReady] = useState(false);
+  const [modelKey, setModelKeyState] = useState(() => {
+    const stored = localStorage.getItem(CHAT_MODEL_STORAGE_KEY);
+    if (stored && findChatModelByKey(stored)) return stored;
+    return DEFAULT_CHAT_MODEL_KEY;
+  });
+
+  const modelName = useMemo(() => resolveChatModelName(modelKey), [modelKey]);
+
+  const setModelKey = useCallback((key: string) => {
+    setModelKeyState(key);
+    localStorage.setItem(CHAT_MODEL_STORAGE_KEY, key);
+    syncChatModelName.write(resolveChatModelName(key));
+  }, []);
 
   const {
     conversations,
@@ -183,6 +203,14 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const chatConversationKey =
     activeConversationKey || routeSessionIdRef.current || draftChatKey;
 
+  useEffect(() => {
+    createDeepSeekChatProvider(chatConversationKey, {
+      modelName,
+      userId: DEFAULT_USER_ID,
+    });
+    syncChatModelName.write(modelName);
+  }, [chatConversationKey, modelName]);
+
   const {
     messages,
     isRequesting,
@@ -194,7 +222,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     setMessage,
   } = useXChat<AppChatMessage>({
     provider: createDeepSeekChatProvider(chatConversationKey, {
-      modelName: DEFAULT_MODEL,
+      modelName,
       userId: DEFAULT_USER_ID,
     }) as never,
     conversationKey: chatConversationKey,
@@ -262,8 +290,11 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const onSubmit = useCallback(
     (val: string) => {
       if (!val.trim()) return;
-      const roundMeta = createChatRoundMeta(DEFAULT_MODEL);
-      const requestParams = buildChatRequestParams(val, roundMeta);
+      const roundMeta = createChatRoundMeta(modelName);
+      const requestParams = {
+        ...buildChatRequestParams(val, roundMeta),
+        modelName,
+      };
 
       if (!activeConversationKey) {
         const sessionId = generateSessionId();
@@ -281,6 +312,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     },
     [
       activeConversationKey,
+      modelName,
       onRequest,
       queueRequest,
       setActiveConversationKey,
@@ -362,6 +394,9 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     messages,
     isRequesting,
     isDefaultMessagesRequesting,
+    modelKey,
+    modelName,
+    setModelKey,
     onRequest,
     onReload,
     setMessage,
