@@ -84,10 +84,10 @@ export async function upsertSession(
   await db
     .prepare(
       `UPDATE x_session
-       SET lastMessageTime = ?, modifyTime = ?, title = COALESCE(?, title)
+       SET lastMessageTime = ?, modifyTime = ?
        WHERE sessionId = ?`,
     )
-    .bind(params.lastMessageTime ?? now, now, params.title ?? null, params.sessionId)
+    .bind(params.lastMessageTime ?? now, now, params.sessionId)
     .run();
 }
 
@@ -349,12 +349,14 @@ export async function prepareChat(
   const userId = body.userId ?? 0;
   const modelName = body.modelName ?? "";
   const now = nowIso();
-  const title = truncateTitle(requestMessages[0]?.text ?? "");
+  const existingSession = await getSessionBySessionId(db, body.sessionId);
 
   await upsertSession(db, {
     sessionId: body.sessionId,
     userId,
-    title,
+    ...(existingSession
+      ? {}
+      : { title: truncateTitle(requestMessages[0]?.text ?? "") }),
     lastMessageTime: now,
   });
 

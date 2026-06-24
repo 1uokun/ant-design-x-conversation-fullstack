@@ -1,4 +1,3 @@
-import type { ActionsFeedbackProps } from "@ant-design/x";
 import { useXChat, useXConversations, type DefaultMessageInfo } from "@ant-design/x-sdk";
 import type { MessageInstance } from "antd/es/message/interface";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -6,44 +5,38 @@ import {
   abortChat,
   buildChatRequestParams,
   createChatRoundMeta,
+  deleteMessage,
   deleteSession,
   fetchMessageList,
   fetchSessionList,
   submitFeedback,
   updateSession,
   type Conversation,
-} from "../api/message";
-import locale from "../_utils/local";
-import { createDeepSeekChatProvider } from "../chat/DeepSeekChatProvider";
-import { DEFAULT_MODEL, DEFAULT_USER_ID } from "../chat/constants";
-import { turnsToChatMessageInfos } from "../chat/history";
+} from "../../api/message";
+import locale from "../../_utils/local";
+import {
+  CHAT_MODEL_STORAGE_KEY,
+  DEFAULT_CHAT_MODEL_KEY,
+  findChatModelByKey,
+  resolveChatModelName,
+} from "../../config/chat-models";
+import { generateSessionId } from "../../utils/id";
+import {
+  getSessionIdFromPath,
+  syncChatPath,
+} from "../../utils/route";
+import { DEFAULT_MODEL, DEFAULT_USER_ID } from "./types";
 import {
   buildLocalConversation,
   getConversationGroupByTime,
   getConversationGroupSortKey,
   mergeServerAndLocalConversations,
   sessionToConversation,
-} from "../chat/session";
-import { generateSessionId } from "../utils/id";
-import {
-  getSessionIdFromPath,
-  syncChatPath,
-} from "../utils/route";
-
-export type AppChatMessage = {
-  role: string;
-  content: string | { text?: string; imageUrls?: string[] };
-  messageId?: string;
-  requestId?: string;
-  responseId?: string;
-  modelName?: string;
-  requestTime?: string;
-  responseTime?: string;
-  feedbackType?: string;
-  extraInfo?: {
-    feedback?: ActionsFeedbackProps["value"];
-  };
-};
+  turnsToChatMessageInfos,
+} from "./adapters";
+import { createDeepSeekChatProvider, type ChatProviderInput } from "./provider";
+import { syncChatModelName } from "./model-sync";
+import type { AppChatMessage } from "./types";
 
 type UseConversationChatOptions = {
   messageApi: MessageInstance;
@@ -60,6 +53,19 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const routeSessionIdRef = useRef(getSessionIdFromPath());
   const skipUrlSyncRef = useRef(false);
   const [routeReady, setRouteReady] = useState(false);
+  const [modelKey, setModelKeyState] = useState(() => {
+    const stored = localStorage.getItem(CHAT_MODEL_STORAGE_KEY);
+    if (stored && findChatModelByKey(stored)) return stored;
+    return DEFAULT_CHAT_MODEL_KEY;
+  });
+
+  const modelName = useMemo(() => resolveChatModelName(modelKey), [modelKey]);
+
+  const setModelKey = useCallback((key: string) => {
+    setModelKeyState(key);
+    localStorage.setItem(CHAT_MODEL_STORAGE_KEY, key);
+    syncChatModelName.write(resolveChatModelName(key));
+  }, []);
 
   const {
     conversations,
@@ -198,6 +204,14 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const chatConversationKey =
     activeConversationKey || routeSessionIdRef.current || draftChatKey;
 
+  useEffect(() => {
+    createDeepSeekChatProvider(chatConversationKey, {
+      modelName,
+      userId: DEFAULT_USER_ID,
+    });
+    syncChatModelName.write(modelName);
+  }, [chatConversationKey, modelName]);
+
   const {
     messages,
     isRequesting,
@@ -205,11 +219,12 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     abort,
     onRequest,
     queueRequest,
-    onReload,
+    onReload: reloadMessage,
     setMessage,
+    removeMessage,
   } = useXChat<AppChatMessage>({
     provider: createDeepSeekChatProvider(chatConversationKey, {
-      modelName: DEFAULT_MODEL,
+      modelName,
       userId: DEFAULT_USER_ID,
     }) as never,
     conversationKey: chatConversationKey,
@@ -247,6 +262,38 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     },
   });
 
+  const handleReload = useCallback(
+    (
+      id: string | number,
+      requestParams?: Partial<ChatProviderInput>,
+      opts?: Parameters<typeof reloadMessage>[2],
+    ) => {
+      const msgInfo = messages.find((item) => item.id === id);
+      if (!msgInfo) {
+        messageApi.error("未找到消息");
+        return;
+      }
+      const { messageId, requestId, responseId, modelName: msgModelName } = msgInfo.message;
+      if (!messageId || !requestId || !responseId) {
+        messageApi.error("重新生成缺少消息标识");
+        return;
+      }
+      reloadMessage(
+        id,
+        {
+          ...requestParams,
+          userAction: "retry",
+          messageId,
+          requestId,
+          responseId,
+          modelName: requestParams?.modelName ?? msgModelName ?? modelName,
+        },
+        opts,
+      );
+    },
+    [messages, modelName, messageApi, reloadMessage],
+  );
+
   const handleFeedback = useCallback(
     async (messageId: string, feedbackType: "good" | "bad") => {
       if (!activeConversationKey) return;
@@ -277,8 +324,11 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const onSubmit = useCallback(
     (val: string) => {
       if (!val.trim()) return;
-      const roundMeta = createChatRoundMeta(DEFAULT_MODEL);
-      const requestParams = buildChatRequestParams(val, roundMeta);
+      const roundMeta = createChatRoundMeta(modelName);
+      const requestParams = {
+        ...buildChatRequestParams(val, roundMeta),
+        modelName,
+      };
 
       if (!activeConversationKey) {
         const sessionId = generateSessionId();
@@ -289,13 +339,11 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
       }
 
       onRequest(requestParams as Parameters<typeof onRequest>[0]);
-      const current = conversationsRef.current.find((item) => item.key === activeConversationKey);
-      touchConversation(activeConversationKey, {
-        label: current?.label || val.slice(0, 15),
-      });
+      touchConversation(activeConversationKey);
     },
     [
       activeConversationKey,
+      modelName,
       onRequest,
       queueRequest,
       setActiveConversationKey,
@@ -357,6 +405,92 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     [messageApi, setConversation],
   );
 
+  const handleTogglePin = useCallback(
+    async (key: string, pinned: boolean) => {
+      try {
+        await updateSession(key, { pinned });
+        const current = conversationsRef.current.find((item) => item.key === key);
+        if (current) {
+          setConversation(key, {
+            ...current,
+            pinned,
+            group: pinned
+              ? "置顶"
+              : getConversationGroupByTime(current.lastMessageTime),
+          });
+        }
+      } catch {
+        messageApi.error(locale.pinFailed);
+      }
+    },
+    [messageApi, setConversation],
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (bubbleId: string | number) => {
+      const id = String(bubbleId);
+      const messageId = id.replace(/-request$/, "");
+      if (!messageId) return;
+      try {
+        await deleteMessage(messageId);
+        removeMessage(`${messageId}-request`);
+        removeMessage(messageId);
+      } catch {
+        messageApi.error(locale.deleteMessageFailed);
+        throw new Error("delete message failed");
+      }
+    },
+    [messageApi, removeMessage],
+  );
+
+  const handleToggleUserMessageEdit = useCallback(
+    (messageKey: string | number, editing: boolean) => {
+      setMessage(messageKey, (msg) => ({
+        extraInfo: { ...msg.extraInfo, editing },
+      }));
+    },
+    [setMessage],
+  );
+
+  const handleCancelUserMessageEdit = useCallback(
+    (messageKey: string | number) => {
+      setMessage(messageKey, (msg) => ({
+        extraInfo: { ...msg.extraInfo, editing: false },
+      }));
+    },
+    [setMessage],
+  );
+
+  const handleEditUserMessage = useCallback(
+    (messageKey: string | number, content: string) => {
+      const target = messages.find((item) => item.id === messageKey);
+      if (!target) return;
+
+      const { messageId, requestId, responseId, modelName: msgModelName } = target.message;
+      if (!messageId || !requestId || !responseId) return;
+
+      setMessage(messageKey, (msg) => ({
+        message: { ...msg.message, content },
+        extraInfo: { ...msg.extraInfo, editing: false },
+      }));
+
+      const assistantMessage = messages.find(
+        (item) => item.id === messageId && item.message.role === "assistant",
+      );
+
+      if (assistantMessage) {
+        reloadMessage(messageId, {
+          userAction: "retry",
+          messageId,
+          requestId,
+          responseId,
+          modelName: msgModelName ?? modelName,
+        });
+      }
+    },
+    [messages, modelName, setMessage, reloadMessage],
+  );
+
   const sortedConversations = useMemo(() => {
     const next = [...conversations] as Conversation[];
     next.sort((a, b) => {
@@ -377,8 +511,11 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     messages,
     isRequesting,
     isDefaultMessagesRequesting,
+    modelKey,
+    modelName,
+    setModelKey,
     onRequest,
-    onReload,
+    onReload: handleReload,
     setMessage,
     onSubmit,
     handleAbort,
@@ -386,5 +523,10 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     handleCreateConversation,
     handleDeleteConversation,
     handleRenameConversation,
+    handleTogglePin,
+    handleDeleteMessage,
+    handleToggleUserMessageEdit,
+    handleCancelUserMessageEdit,
+    handleEditUserMessage,
   };
 }
