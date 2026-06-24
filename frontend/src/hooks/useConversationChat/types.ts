@@ -16,5 +16,8 @@ export type AppChatMessage = {
   feedbackType?: string;
   extraInfo?: {
     feedback?: ActionsFeedbackProps["value"];
+    userCanCollapse?: boolean;
+    userCollapsed?: boolean;
+    editing?: boolean;
   };
 };

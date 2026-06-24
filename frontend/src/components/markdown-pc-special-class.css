@@ -1,0 +1,109 @@
+/* 源自 main.css 的 markdown-pc-special-class，适配 @ant-design/x-markdown */
+.markdown-pc-special-class {
+  --md-font-base-font-size: 16px;
+  --md-font-base-line-height: 26px;
+  --md-font-h1-font-size: 24px;
+  --md-font-h1-line-height: 36px;
+  --md-font-h2-font-size: 20px;
+  --md-font-h2-line-height: 32px;
+  --md-font-h3-font-size: 18px;
+  --md-font-h3-line-height: 28px;
+  --md-font-h4-font-size: 16px;
+  --md-font-h4-line-height: 26px;
+  --md-font-h5-font-size: 14px;
+  --md-font-h5-line-height: 24px;
+  --md-font-h6-font-size: 13px;
+  --md-font-h6-line-height: 22px;
+  --md-font-markdown-margin: 16px;
+  --md-font-list-margin: 8px;
+}
+
+.x-markdown.markdown-pc-special-class {
+  --font-size: var(--md-font-base-font-size);
+  --margin-block: 0 0 var(--md-font-markdown-margin) 0;
+  --margin-li: 0 0 var(--md-font-list-margin) 0;
+  --margin-ul-ol: 0 0 var(--md-font-markdown-margin) 28px;
+  --hr-margin: var(--md-font-markdown-margin) 0;
+  --table-margin: 0 0 var(--md-font-markdown-margin) 0;
+  --margin-pre: 0 0 var(--md-font-markdown-margin) 0;
+
+  font-size: var(--md-font-base-font-size);
+  line-height: var(--md-font-base-line-height);
+}
+
+.x-markdown-light.markdown-pc-special-class {
+  --text-color: #222;
+  --heading-color: #222;
+  --xmd-tail-color: #222;
+  color: #222;
+}
+
+.x-markdown.markdown-pc-special-class h1 {
+  font-size: var(--md-font-h1-font-size);
+  line-height: var(--md-font-h1-line-height);
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.x-markdown.markdown-pc-special-class h2 {
+  font-size: var(--md-font-h2-font-size);
+  line-height: var(--md-font-h2-line-height);
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.x-markdown.markdown-pc-special-class h3 {
+  font-size: var(--md-font-h3-font-size);
+  line-height: var(--md-font-h3-line-height);
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.x-markdown.markdown-pc-special-class h4 {
+  font-size: var(--md-font-h4-font-size);
+  line-height: var(--md-font-h4-line-height);
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.x-markdown.markdown-pc-special-class h5 {
+  font-size: var(--md-font-h5-font-size);
+  line-height: var(--md-font-h5-line-height);
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.x-markdown.markdown-pc-special-class h6 {
+  font-size: var(--md-font-h6-font-size);
+  line-height: var(--md-font-h6-line-height);
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.x-markdown.markdown-pc-special-class p,
+.x-markdown.markdown-pc-special-class:not(.x-md-disable-all):not(
+    .x-md-disable-p
+  )
+  > div {
+  font-size: var(--md-font-base-font-size);
+  line-height: var(--md-font-base-line-height);
+}
+
+.x-markdown-light.markdown-pc-special-class p,
+.x-markdown-light.markdown-pc-special-class li,
+.x-markdown-light.markdown-pc-special-class:not(.x-md-disable-all):not(
+    .x-md-disable-p
+  )
+  > div {
+  color: #222;
+}
+
+.x-markdown-light.markdown-pc-special-class li::marker {
+  font-size: var(--md-font-base-font-size);
+  line-height: var(--md-font-base-line-height);
+  color: #222;
+}
+
+.x-markdown-light pre code:not([class$="-highlightCode-code"] pre code) {
+  background-color: transparent !important;
+}

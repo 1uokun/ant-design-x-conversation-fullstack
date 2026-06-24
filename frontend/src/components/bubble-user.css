@@ -1,0 +1,13 @@
+.user-bubble-root:hover .user-bubble-footer,
+.user-bubble-root:has(.ant-bubble-content-editing) .user-bubble-footer {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.user-bubble-footer {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}

@@ -1,6 +1,7 @@
 import {
   DeleteOutlined,
   EditOutlined,
+  PushpinOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { Conversations as AntConversations } from "@ant-design/x";
@@ -60,6 +61,7 @@ export type ConversationSideProps = {
   onCreate: () => void;
   onDelete: (key: string) => void;
   onRename: (key: string, name: string) => Promise<boolean>;
+  onTogglePin?: (key: string, pinned: boolean) => void;
 };
 
 const ConversationSide: React.FC<ConversationSideProps> = ({
@@ -69,6 +71,7 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
   onCreate,
   onDelete,
   onRename,
+  onTogglePin,
 }) => {
   const { styles } = useStyle();
   const [renameOpen, setRenameOpen] = useState(false);
@@ -134,27 +137,38 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
           onActiveChange={onSelect}
           groupable
           styles={{ item: { padding: "0 8px" } }}
-          menu={(conversation) => ({
-            items: [
-              {
-                label: locale.rename,
-                key: "rename",
-                icon: <EditOutlined />,
-                onClick: () =>
-                  handleOpenRename(
-                    conversation.key,
-                    String(conversation.label ?? ""),
-                  ),
-              },
-              {
-                label: locale.delete,
-                key: "delete",
-                icon: <DeleteOutlined />,
-                danger: true,
-                onClick: () => confirmDeleteConversation(conversation.key),
-              },
-            ],
-          })}
+          menu={(conversation) => {
+            const pinned = Boolean(
+              conversations.find((item) => item.key === conversation.key)?.pinned,
+            );
+            return {
+              items: [
+                {
+                  label: pinned ? locale.unpinFromTop : locale.pinToTop,
+                  key: "pin",
+                  icon: <PushpinOutlined />,
+                  onClick: () => onTogglePin?.(conversation.key, !pinned),
+                },
+                {
+                  label: locale.rename,
+                  key: "rename",
+                  icon: <EditOutlined />,
+                  onClick: () =>
+                    handleOpenRename(
+                      conversation.key,
+                      String(conversation.label ?? ""),
+                    ),
+                },
+                {
+                  label: locale.delete,
+                  key: "delete",
+                  icon: <DeleteOutlined />,
+                  danger: true,
+                  onClick: () => confirmDeleteConversation(conversation.key),
+                },
+              ],
+            };
+          }}
         />
         <div className={styles.sideFooter}>
           <Avatar size={24} />

@@ -7,6 +7,10 @@ export type ChatContextValue = {
   setMessage?: ReturnType<typeof useXChat<AppChatMessage>>['setMessage'];
   sessionId?: string;
   onFeedback?: (messageId: string, feedbackType: 'good' | 'bad') => void;
+  onDeleteMessage?: (bubbleId: string | number) => Promise<void>;
+  onToggleUserMessageEdit?: (messageKey: string | number, editing: boolean) => void;
+  onEditUserMessage?: (messageKey: string | number, content: string) => void;
+  onCancelUserMessageEdit?: (messageKey: string | number) => void;
 };
 
 export const ChatContext = React.createContext<ChatContextValue>({});

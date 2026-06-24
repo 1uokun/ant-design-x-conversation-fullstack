@@ -38,12 +38,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   );
 
   return (
-    <div
+    <Flex
+      align="center"
       style={{
-        width: "100%",
-        maxWidth: 840,
-        margin: "0 auto",
-        padding: "0 8px",
+        height: 56,
+        paddingLeft: 4
       }}
     >
       <Dropdown
@@ -118,7 +117,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           {selected.label}
         </Button>
       </Dropdown>
-    </div>
+    </Flex>
   );
 };
 

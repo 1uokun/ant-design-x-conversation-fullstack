@@ -22,23 +22,12 @@ const useStyle = createStyles(({ token, css }) => ({
   `,
   chat: css`
     height: 100%;
-    width: calc(100% - 280px);
+    width: calc(100% - 256px);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    .ant-bubble-content-updating {
-      background-image: linear-gradient(
-        90deg,
-        #ff6b23 0%,
-        #af3cb8 31%,
-        #53b6ff 89%
-      );
-      background-size: 100% 2px;
-      background-repeat: no-repeat;
-      background-position: bottom;
-    }
-  `
+  `,
 }));
 
 const Independent: React.FC = () => {
@@ -64,10 +53,23 @@ const Independent: React.FC = () => {
     handleCreateConversation,
     handleDeleteConversation,
     handleRenameConversation,
+    handleTogglePin,
+    handleDeleteMessage,
+    handleToggleUserMessageEdit,
+    handleCancelUserMessageEdit,
+    handleEditUserMessage,
   } = useConversationChat({ messageApi });
 
   const onSubmit = (val: string) => {
     submitChat(val);
+    listRef.current?.scrollTo({ top: "bottom" });
+  };
+
+  const handleEditUserMessageWithScroll = (
+    messageKey: string | number,
+    content: string,
+  ) => {
+    handleEditUserMessage(messageKey, content);
     listRef.current?.scrollTo({ top: "bottom" });
   };
 
@@ -78,6 +80,10 @@ const Independent: React.FC = () => {
         setMessage,
         sessionId: activeConversationKey,
         onFeedback: handleFeedback,
+        onDeleteMessage: handleDeleteMessage,
+        onToggleUserMessageEdit: handleToggleUserMessageEdit,
+        onEditUserMessage: handleEditUserMessageWithScroll,
+        onCancelUserMessageEdit: handleCancelUserMessageEdit,
       }}
     >
       {contextHolder}
@@ -89,6 +95,7 @@ const Independent: React.FC = () => {
           onCreate={handleCreateConversation}
           onDelete={handleDeleteConversation}
           onRename={handleRenameConversation}
+          onTogglePin={handleTogglePin}
         />
         <div className={styles.chat}>
           <ModelSelector
@@ -102,6 +109,8 @@ const Independent: React.FC = () => {
             messages={messages}
             className={className}
             onSubmit={onSubmit}
+            onEditUserMessage={handleEditUserMessageWithScroll}
+            onCancelUserMessageEdit={handleCancelUserMessageEdit}
           />
           <ChatSender
             activeConversationKey={activeConversationKey}
