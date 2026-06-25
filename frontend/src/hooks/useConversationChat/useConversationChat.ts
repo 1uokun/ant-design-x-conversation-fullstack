@@ -7,6 +7,7 @@ import {
   createChatRoundMeta,
   deleteMessage,
   deleteSession,
+  fetchAvailableModelIds,
   fetchMessageList,
   fetchSessionList,
   fetchStreamBuffer,
@@ -16,10 +17,13 @@ import {
 } from "../../api/message";
 import locale from "../../_utils/local";
 import {
-  CHAT_MODEL_STORAGE_KEY,
-  DEFAULT_CHAT_MODEL_KEY,
-  findChatModelByKey,
+  getChatModelKey,
+  mergeChatModels,
+  readStoredModelName,
   resolveChatModelName,
+  resolveModelKey,
+  writeStoredModelName,
+  type ChatModelOption,
 } from "../../config/chat-models";
 import { generateSessionId } from "../../utils/id";
 import {
@@ -56,18 +60,60 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   const routeSessionIdRef = useRef(getSessionIdFromPath());
   const skipUrlSyncRef = useRef(false);
   const [routeReady, setRouteReady] = useState(false);
+  const [chatModels, setChatModels] = useState<ChatModelOption[]>([]);
   const [modelKey, setModelKeyState] = useState(() => {
-    const stored = localStorage.getItem(CHAT_MODEL_STORAGE_KEY);
-    if (stored && findChatModelByKey(stored)) return stored;
-    return DEFAULT_CHAT_MODEL_KEY;
+    const stored = readStoredModelName();
+    return stored ? resolveModelKey(stored) : "";
   });
 
-  const modelName = useMemo(() => resolveChatModelName(modelKey), [modelKey]);
+  const modelName = useMemo(
+    () => resolveChatModelName(modelKey, chatModels) || readStoredModelName() || DEFAULT_MODEL,
+    [modelKey, chatModels],
+  );
 
-  const setModelKey = useCallback((key: string) => {
-    setModelKeyState(key);
-    localStorage.setItem(CHAT_MODEL_STORAGE_KEY, key);
-    syncChatModelName.write(resolveChatModelName(key));
+  useEffect(() => {
+    const stored = readStoredModelName();
+    if (stored) syncChatModelName.write(stored);
+  }, []);
+
+  const setModelKey = useCallback(
+    (key: string) => {
+      const name = resolveChatModelName(key, chatModels);
+      setModelKeyState(key);
+      if (name) {
+        writeStoredModelName(name);
+        syncChatModelName.write(name);
+      }
+    },
+    [chatModels],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAvailableModelIds()
+      .then((ids) => {
+        if (cancelled || ids.length === 0) return;
+
+        const merged = mergeChatModels(ids);
+        setChatModels(merged);
+
+        const stored = readStoredModelName();
+        const matched = stored ? merged.find((item) => item.modelName === stored) : undefined;
+        const selected = matched ?? merged[0];
+        const key = getChatModelKey(selected);
+
+        setModelKeyState(key);
+        writeStoredModelName(selected.modelName);
+        syncChatModelName.write(selected.modelName);
+      })
+      .catch(() => {
+        // 上游不可用时沿用 localStorage 中的 modelName
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const {
@@ -590,6 +636,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     isDefaultMessagesRequesting,
     modelKey,
     modelName,
+    chatModels,
     setModelKey,
     onRequest,
     onReload: handleReload,

@@ -11,6 +11,7 @@ import {
 } from "./db";
 import { EventType } from "./constants";
 import { handleChatAbort, handleChatStream } from "./services/chat";
+import { listUpstreamModelIds } from "./services/models";
 import { getStreamBuffer } from "./services/getStreamBuffer";
 import { handleStreamBufferSubscribe } from "./services/subscribeStreamBuffer";
 import { processChatStreamQueueMessage } from "./services/streamRunner";
@@ -138,6 +139,16 @@ app.get("/api/v1/chat/stream-buffer", async (c) => {
   const data = await getStreamBuffer(c.env, sessionId, messageId);
   if (!data) return jsonError("消息不存在", 404);
   return jsonOk(data);
+});
+
+app.get("/api/v1/models", async (c) => {
+  try {
+    const ids = await listUpstreamModelIds(c.env);
+    return jsonOk({ list: ids.map((id) => ({ id })) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "list models failed";
+    return jsonError(message, 502);
+  }
 });
 
 app.post("/api/v1/chat", async (c) => {

@@ -72,6 +72,7 @@ const Independent: React.FC = () => {
     isDefaultMessagesRequesting,
     modelKey,
     setModelKey,
+    chatModels,
     onReload,
     setMessage,
     onSubmit: submitChat,
@@ -137,6 +138,7 @@ const Independent: React.FC = () => {
           <ModelSelector
             value={modelKey}
             onChange={setModelKey}
+            models={chatModels}
             disabled={isRequesting}
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => setSidebarCollapsed(false)}

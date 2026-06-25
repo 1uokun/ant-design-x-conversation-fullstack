@@ -2,7 +2,7 @@ import type { ActionsFeedbackProps } from "@ant-design/x";
 
 export const DEFAULT_USER_ID = 1;
 export const DEFAULT_MODEL =
-  import.meta.env.VITE_DEFAULT_MODEL || "deepseek-chat";
+  import.meta.env.VITE_DEFAULT_MODEL || "deepseek-v4-flash";
 
 export type AppChatMessage = {
   role: string;

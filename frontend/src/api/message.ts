@@ -291,3 +291,12 @@ export async function abortChat(payload: AbortPayload) {
   if (!res.success) throw new Error(res.message ?? "abortChat failed");
   return res.data;
 }
+
+/** 上游可用模型 id 列表（经后端代理） */
+export async function fetchAvailableModelIds(): Promise<string[]> {
+  const res = await requestJson<ListData<{ id: string }>>("/models");
+  if (!res.success || !res.data) {
+    throw new Error(res.message ?? "fetchAvailableModelIds failed");
+  }
+  return res.data.list.map((item) => item.id);
+}
