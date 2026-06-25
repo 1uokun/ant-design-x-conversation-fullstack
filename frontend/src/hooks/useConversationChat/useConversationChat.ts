@@ -41,6 +41,7 @@ import {
 import { createDeepSeekChatProvider, type ChatProviderInput } from "./provider";
 import { subscribeStreamBuffer } from "./subscribeStreamBuffer";
 import { appendHistoryPage, fetchFirstHistoryPage } from "./historyPagination";
+import { registerGeneratingListener } from "./provider";
 import { syncChatModelName } from "./model-sync";
 import type { AppChatMessage } from "./types";
 
@@ -127,6 +128,20 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  const patchConversationGenerating = useCallback(
+    (key: string, active: boolean) => {
+      const current = conversationsRef.current.find((item) => item.key === key);
+      if (!current || !!current.generating === active) return;
+      setConversation(key, { ...current, generating: active });
+    },
+    [setConversation],
+  );
+
+  useEffect(() => {
+    registerGeneratingListener(patchConversationGenerating);
+    return () => registerGeneratingListener(undefined);
+  }, [patchConversationGenerating]);
 
   useEffect(() => {
     activeConversationKeyRef.current = activeConversationKey;
@@ -320,7 +335,10 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   useEffect(() => {
     if (!activeConversationKey || !serverStreamingMessageId || isDefaultMessagesRequesting) return;
 
+    const sessionId = activeConversationKey;
     const messageId = serverStreamingMessageId;
+    patchConversationGenerating(sessionId, true);
+
     const streamingMsg = messagesRef.current.find((item) => item.id === messageId);
     const initialText =
       typeof streamingMsg?.message.content === "string"
@@ -331,7 +349,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
 
     const applyFinalBuffer = async () => {
       try {
-        const buffer = await fetchStreamBuffer(activeConversationKey, messageId);
+        const buffer = await fetchStreamBuffer(sessionId, messageId);
         const status = assistantStatusFromStreamBuffer(buffer.eventType, buffer.text);
         setMessage(messageId, (msg) => ({
           status,
@@ -343,11 +361,13 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         }));
       } catch {
         setMessage(messageId, (msg) => ({ ...msg, status: "success" }));
+      } finally {
+        patchConversationGenerating(sessionId, false);
       }
     };
 
     subscribeStreamBuffer(
-      activeConversationKey,
+      sessionId,
       messageId,
       initialText,
       {
@@ -371,8 +391,15 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
 
     return () => {
       ac.abort();
+      patchConversationGenerating(sessionId, false);
     };
-  }, [activeConversationKey, serverStreamingMessageId, isDefaultMessagesRequesting, setMessage]);
+  }, [
+    activeConversationKey,
+    serverStreamingMessageId,
+    isDefaultMessagesRequesting,
+    patchConversationGenerating,
+    setMessage,
+  ]);
 
   const handleReload = useCallback(
     (

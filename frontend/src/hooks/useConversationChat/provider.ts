@@ -13,6 +13,14 @@ import { generateMessageId } from "../../utils/id";
 import { DEFAULT_MODEL, DEFAULT_USER_ID } from "./types";
 import { syncChatModelName } from "./model-sync";
 
+type GeneratingListener = (key: string, active: boolean) => void;
+let onGeneratingChange: GeneratingListener | undefined;
+
+/** 由 useConversationChat 注册，将生成状态写回 conversations */
+export function registerGeneratingListener(listener?: GeneratingListener) {
+  onGeneratingChange = listener;
+}
+
 export type ChatStreamOutput = Partial<Record<SSEFields, unknown>>;
 
 export type ChatProviderInput = Partial<ChatRequestBody> & {
@@ -135,6 +143,33 @@ class AppDeepSeekChatProvider extends DeepSeekChatProvider<
       return { ...result, ...this.pendingRoundMeta };
     }
     return result;
+  }
+
+  injectRequest(handlers: {
+    onUpdate: (chunk: ChatStreamOutput, responseHeaders: Headers) => unknown;
+    onSuccess: (chunks: ChatStreamOutput[], responseHeaders: Headers) => unknown;
+    onError: (error: Error, errorInfo?: unknown) => unknown;
+  }) {
+    const key = this.conversationKey;
+    onGeneratingChange?.(key, true);
+
+    super.injectRequest({
+      onUpdate: handlers.onUpdate,
+      onSuccess: (data, responseHeaders) => {
+        try {
+          return handlers.onSuccess(data, responseHeaders);
+        } finally {
+          onGeneratingChange?.(key, false);
+        }
+      },
+      onError: (error, errorInfo) => {
+        try {
+          return handlers.onError(error, errorInfo);
+        } finally {
+          onGeneratingChange?.(key, false);
+        }
+      },
+    });
   }
 }
 

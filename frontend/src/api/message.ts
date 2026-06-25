@@ -110,6 +110,8 @@ export type Conversation = {
   group?: string;
   pinned?: boolean;
   lastMessageTime?: string;
+  /** 是否正在流式生成（由 provider 请求生命周期同步） */
+  generating?: boolean;
 };
 
 export type MessageContent = {

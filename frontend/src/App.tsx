@@ -1,6 +1,6 @@
 import { message } from "antd";
 import { createStyles } from "antd-style";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import "@ant-design/x-markdown/themes/light.css";
 import "@ant-design/x-markdown/themes/dark.css";
 import { BubbleListRef } from "@ant-design/x/es/bubble";
@@ -68,7 +68,6 @@ const Independent: React.FC = () => {
     activeConversationKey,
     selectConversation,
     messages,
-    isRequesting,
     isDefaultMessagesRequesting,
     loadMoreHistory,
     modelKey,
@@ -88,6 +87,14 @@ const Independent: React.FC = () => {
     handleCancelUserMessageEdit,
     handleEditUserMessage,
   } = useConversationChat({ messageApi });
+
+  const isRequesting = useMemo(
+    () =>
+      Boolean(
+        conversations.find((c) => c.key === activeConversationKey)?.generating,
+      ),
+    [conversations, activeConversationKey],
+  );
 
   const onSubmit = (val: string) => {
     submitChat(val);

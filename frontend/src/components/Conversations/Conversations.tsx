@@ -1,6 +1,7 @@
 import {
   DeleteOutlined,
   EditOutlined,
+  LoadingOutlined,
   PushpinOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
@@ -40,6 +41,12 @@ const useStyle = createStyles(({ token, css }) => ({
     display: flex;
     align-items: center;
     justify-content: space-between;
+  `,
+  generatingIcon: css`
+    &.ant-conversations-menu-icon {
+      opacity: 1;
+      color: ${token.colorPrimary};
+    }
   `,
 }));
 
@@ -115,11 +122,20 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
           groupable
           styles={{ item: { padding: "0 8px" } }}
           menu={(conversation) => {
-            const pinned = Boolean(
-              conversations.find((item) => item.key === conversation.key)
-                ?.pinned,
-            );
+            const item = conversations.find((c) => c.key === conversation.key);
+            const pinned = Boolean(item?.pinned);
+            const isGenerating = Boolean(item?.generating);
             return {
+              trigger: (_conv, { originNode }) =>
+                isGenerating ? (
+                  <LoadingOutlined
+                    spin
+                    className={`ant-conversations-menu-icon ${styles.generatingIcon}`}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  originNode
+                ),
               items: [
                 {
                   label: pinned ? locale.unpinFromTop : locale.pinToTop,
