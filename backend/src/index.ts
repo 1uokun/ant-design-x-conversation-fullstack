@@ -11,6 +11,7 @@ import {
 } from "./db";
 import { EventType } from "./constants";
 import { handleChatAbort, handleChatStream } from "./services/chat";
+import { listUpstreamModelIds } from "./services/models";
 import { getStreamBuffer } from "./services/getStreamBuffer";
 import { handleStreamBufferSubscribe } from "./services/subscribeStreamBuffer";
 import { processChatStreamQueueMessage } from "./services/streamRunner";
@@ -68,7 +69,34 @@ app.get("/api/v1/session/msg/list", async (c) => {
   const sessionId = c.req.query("sessionId");
   if (!sessionId) return jsonError("sessionId 不能为空");
 
-  const list = await listMessageTurns(c.env.DB, sessionId);
+  const pageRaw = c.req.query("page");
+  const pageSizeRaw = c.req.query("pageSize");
+  const orderRaw = c.req.query("order");
+
+  const pageSize =
+    pageSizeRaw !== undefined && pageSizeRaw !== ""
+      ? Number(pageSizeRaw)
+      : undefined;
+  if (pageSize !== undefined && (!Number.isFinite(pageSize) || pageSize <= 0)) {
+    return jsonError("pageSize 必须为正整数");
+  }
+
+  const page =
+    pageRaw !== undefined && pageRaw !== "" ? Number(pageRaw) : undefined;
+  if (page !== undefined && (!Number.isFinite(page) || page <= 0)) {
+    return jsonError("page 必须为正整数");
+  }
+
+  if (orderRaw && orderRaw !== "asc" && orderRaw !== "desc") {
+    return jsonError("order 必须为 asc 或 desc");
+  }
+
+  const { list, page: pageInfo } = await listMessageTurns(c.env.DB, sessionId, {
+    page,
+    pageSize,
+    order: orderRaw === "desc" ? "desc" : "asc",
+  });
+
   for (const turn of list) {
     if (turn.eventType !== EventType.STREAMING) continue;
     const partial = await readAll(c.env.STREAM_KV, sessionId, turn.messageId);
@@ -76,7 +104,7 @@ app.get("/api/v1/session/msg/list", async (c) => {
       turn.responseMessages = [{ type: "text/plain", text: partial }];
     }
   }
-  return jsonOk({ list });
+  return jsonOk({ page: pageInfo, list });
 });
 
 app.post("/api/v1/session/msg/delete", async (c) => {
@@ -138,6 +166,16 @@ app.get("/api/v1/chat/stream-buffer", async (c) => {
   const data = await getStreamBuffer(c.env, sessionId, messageId);
   if (!data) return jsonError("消息不存在", 404);
   return jsonOk(data);
+});
+
+app.get("/api/v1/models", async (c) => {
+  try {
+    const ids = await listUpstreamModelIds(c.env);
+    return jsonOk({ list: ids.map((id) => ({ id })) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "list models failed";
+    return jsonError(message, 502);
+  }
 });
 
 app.post("/api/v1/chat", async (c) => {

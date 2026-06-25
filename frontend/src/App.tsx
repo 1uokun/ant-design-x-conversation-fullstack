@@ -1,15 +1,17 @@
 import { message } from "antd";
 import { createStyles } from "antd-style";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import "@ant-design/x-markdown/themes/light.css";
 import "@ant-design/x-markdown/themes/dark.css";
 import { BubbleListRef } from "@ant-design/x/es/bubble";
 import { ChatContext } from "./components/ChatContext";
 import ChatList from "./components/ChatList";
 import ChatWelcome from "./components/Welcome";
-import ConversationSide, { SIDEBAR_WIDTH } from "./components/Conversations";
+import ConversationSide, {
+  SIDEBAR_WIDTH,
+} from "./components/Conversations/Conversations";
 import ChatSender from "./components/Sender";
-import ModelSelector from "./components/ModelSelector";
+import ModelSelector from "./components/Conversations/ModelSelector";
 import { useConversationChat } from "./hooks/useConversationChat";
 import { useMarkdownTheme } from "./hooks/useMarkdownTheme";
 
@@ -66,10 +68,11 @@ const Independent: React.FC = () => {
     activeConversationKey,
     selectConversation,
     messages,
-    isRequesting,
     isDefaultMessagesRequesting,
+    loadMoreHistory,
     modelKey,
     setModelKey,
+    chatModels,
     onReload,
     setMessage,
     onSubmit: submitChat,
@@ -84,6 +87,14 @@ const Independent: React.FC = () => {
     handleCancelUserMessageEdit,
     handleEditUserMessage,
   } = useConversationChat({ messageApi });
+
+  const isRequesting = useMemo(
+    () =>
+      Boolean(
+        conversations.find((c) => c.key === activeConversationKey)?.generating,
+      ),
+    [conversations, activeConversationKey],
+  );
 
   const onSubmit = (val: string) => {
     submitChat(val);
@@ -104,6 +115,7 @@ const Independent: React.FC = () => {
         onReload,
         setMessage,
         sessionId: activeConversationKey,
+        loadMoreHistory,
         onFeedback: handleFeedback,
         onDeleteMessage: handleDeleteMessage,
         onToggleUserMessageEdit: handleToggleUserMessageEdit,
@@ -135,6 +147,7 @@ const Independent: React.FC = () => {
           <ModelSelector
             value={modelKey}
             onChange={setModelKey}
+            models={chatModels}
             disabled={isRequesting}
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => setSidebarCollapsed(false)}
@@ -147,7 +160,9 @@ const Independent: React.FC = () => {
             onEditUserMessage={handleEditUserMessageWithScroll}
             onCancelUserMessageEdit={handleCancelUserMessageEdit}
           />
-          <ChatWelcome visible={!activeConversationKey}>
+          <ChatWelcome
+            visible={!activeConversationKey && !isDefaultMessagesRequesting}
+          >
             <ChatSender
               activeConversationKey={activeConversationKey}
               isRequesting={isRequesting}

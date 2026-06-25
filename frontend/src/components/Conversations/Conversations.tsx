@@ -1,6 +1,7 @@
 import {
   DeleteOutlined,
   EditOutlined,
+  LoadingOutlined,
   PushpinOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
@@ -8,9 +9,9 @@ import { Conversations as AntConversations } from "@ant-design/x";
 import { Avatar, Button, Input, Modal } from "antd";
 import { createStyles } from "antd-style";
 import React, { useState } from "react";
-import locale from "../_utils/local";
-import type { Conversation } from "../api/message";
-import SidebarToggle from "./SidebarToggle";
+import locale from "../../_utils/local";
+import type { Conversation } from "../../api/message";
+import Logo from "./Logo";
 
 export const SIDEBAR_WIDTH = 256;
 
@@ -24,25 +25,6 @@ const useStyle = createStyles(({ token, css }) => ({
     flex-direction: column;
     padding: 0 12px;
     box-sizing: border-box;
-  `,
-  logo: css`
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-sizing: border-box;
-  `,
-  logoBrand: css`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-
-    span {
-      font-weight: bold;
-      color: ${token.colorText};
-      font-size: 16px;
-    }
   `,
   conversations: css`
     overflow-y: auto;
@@ -59,6 +41,12 @@ const useStyle = createStyles(({ token, css }) => ({
     display: flex;
     align-items: center;
     justify-content: space-between;
+  `,
+  generatingIcon: css`
+    &.ant-conversations-menu-icon {
+      opacity: 1;
+      color: ${token.colorPrimary};
+    }
   `,
 }));
 
@@ -110,8 +98,6 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
   const confirmDeleteConversation = (key: string) => {
     Modal.confirm({
       title: locale.delete,
-      okText: "确定",
-      cancelText: "取消",
       okButtonProps: { danger: true },
       onOk: () => onDelete(key),
     });
@@ -120,23 +106,8 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
   return (
     <>
       <div className={styles.side}>
-        <div className={styles.logo}>
-          <div className={styles.logoBrand}>
-            <img
-              src="https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*eco6RrQhxbMAAAAAAAAAAAAADgCCAQ/original"
-              draggable={false}
-              alt="logo"
-              width={24}
-              height={24}
-            />
-            <span>Ant Design X</span>
-          </div>
-          <SidebarToggle collapsed={false} onToggle={onToggleCollapse} />
-        </div>
+        <Logo onToggleCollapse={onToggleCollapse} onCreate={onCreate} />
         <AntConversations
-          creation={{
-            onClick: onCreate,
-          }}
           items={conversations.map(({ key, label, ...other }) => ({
             key,
             label:
@@ -151,10 +122,20 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
           groupable
           styles={{ item: { padding: "0 8px" } }}
           menu={(conversation) => {
-            const pinned = Boolean(
-              conversations.find((item) => item.key === conversation.key)?.pinned,
-            );
+            const item = conversations.find((c) => c.key === conversation.key);
+            const pinned = Boolean(item?.pinned);
+            const isGenerating = Boolean(item?.generating);
             return {
+              trigger: (_conv, { originNode }) =>
+                isGenerating ? (
+                  <LoadingOutlined
+                    spin
+                    className={`ant-conversations-menu-icon ${styles.generatingIcon}`}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  originNode
+                ),
               items: [
                 {
                   label: pinned ? locale.unpinFromTop : locale.pinToTop,
@@ -191,8 +172,6 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
       <Modal
         title={locale.rename}
         open={renameOpen}
-        okText="确定"
-        cancelText="取消"
         confirmLoading={renameLoading}
         onOk={handleConfirmRename}
         onCancel={() => setRenameOpen(false)}

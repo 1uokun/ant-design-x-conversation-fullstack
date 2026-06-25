@@ -3,11 +3,12 @@ import { Button, Dropdown, Flex, Tag, Typography } from "antd";
 import { createStyles } from "antd-style";
 import React, { useMemo } from "react";
 import {
-  CHAT_MODELS,
   findChatModelByKey,
   getChatModelKey,
+  type ChatModelOption,
   type ChatModelTag,
-} from "../config/chat-models";
+} from "../../config/chat-models";
+import locale from "../../_utils/local";
 import SidebarToggle from "./SidebarToggle";
 
 const useStyle = createStyles(({ css }) => ({
@@ -34,9 +35,9 @@ const useStyle = createStyles(({ css }) => ({
 }));
 
 const TAG_LABEL: Record<ChatModelTag, string> = {
-  default: "默认",
-  new: "新模型",
-  code: "代码",
+  default: locale.modelTagDefault,
+  new: locale.modelTagNew,
+  code: locale.modelTagCode,
 };
 
 const TAG_COLOR: Record<ChatModelTag, string> = {
@@ -48,6 +49,7 @@ const TAG_COLOR: Record<ChatModelTag, string> = {
 export type ModelSelectorProps = {
   value: string;
   onChange: (modelKey: string) => void;
+  models: ChatModelOption[];
   disabled?: boolean;
   sidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
@@ -56,6 +58,7 @@ export type ModelSelectorProps = {
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   value,
   onChange,
+  models,
   disabled,
   sidebarCollapsed = false,
   onToggleSidebar,
@@ -63,8 +66,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const { styles, cx } = useStyle();
   const [open, setOpen] = React.useState(false);
   const selected = useMemo(
-    () => findChatModelByKey(value) ?? CHAT_MODELS[0],
-    [value],
+    () => findChatModelByKey(value, models) ?? models[0],
+    [value, models],
   );
 
   return (
@@ -108,7 +111,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
             >
               模型
             </Typography.Text>
-            {CHAT_MODELS.map((model) => {
+            {models.map((model) => {
               const key = getChatModelKey(model);
               const active = key === value;
               return (
@@ -131,7 +134,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                     <Flex gap={6} wrap="wrap" align="center">
                       <Typography.Text>{model.label}</Typography.Text>
                       {model.tags?.map((tag) => (
-                        <Tag key={tag} bordered={false} color={TAG_COLOR[tag]}>
+                        <Tag key={tag} color={TAG_COLOR[tag]}>
                           {TAG_LABEL[tag]}
                         </Tag>
                       ))}
@@ -155,7 +158,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           iconPlacement="end"
           size="large"
         >
-          {selected.label}
+          {selected?.label}
         </Button>
       </Dropdown>
     </Flex>

@@ -1,4 +1,4 @@
-import { useXChat, useXConversations, type DefaultMessageInfo } from "@ant-design/x-sdk";
+import { useXChat, useXConversations } from "@ant-design/x-sdk";
 import type { MessageInstance } from "antd/es/message/interface";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
@@ -7,7 +7,7 @@ import {
   createChatRoundMeta,
   deleteMessage,
   deleteSession,
-  fetchMessageList,
+  fetchAvailableModelIds,
   fetchSessionList,
   fetchStreamBuffer,
   submitFeedback,
@@ -16,10 +16,13 @@ import {
 } from "../../api/message";
 import locale from "../../_utils/local";
 import {
-  CHAT_MODEL_STORAGE_KEY,
-  DEFAULT_CHAT_MODEL_KEY,
-  findChatModelByKey,
+  getChatModelKey,
+  mergeChatModels,
+  readStoredModelName,
   resolveChatModelName,
+  resolveModelKey,
+  writeStoredModelName,
+  type ChatModelOption,
 } from "../../config/chat-models";
 import { generateSessionId } from "../../utils/id";
 import {
@@ -34,10 +37,11 @@ import {
   mergeServerAndLocalConversations,
   sessionToConversation,
   assistantStatusFromStreamBuffer,
-  turnsToChatMessageInfos,
 } from "./adapters";
 import { createDeepSeekChatProvider, type ChatProviderInput } from "./provider";
 import { subscribeStreamBuffer } from "./subscribeStreamBuffer";
+import { appendHistoryPage, fetchFirstHistoryPage } from "./historyPagination";
+import { registerGeneratingListener } from "./provider";
 import { syncChatModelName } from "./model-sync";
 import type { AppChatMessage } from "./types";
 
@@ -45,29 +49,64 @@ type UseConversationChatOptions = {
   messageApi: MessageInstance;
 };
 
-function findConversationBySessionId(
-  list: Conversation[],
-  sessionId: string,
-): Conversation | undefined {
-  return list.find((item) => item.key === sessionId);
-}
-
 export function useConversationChat({ messageApi }: UseConversationChatOptions) {
   const routeSessionIdRef = useRef(getSessionIdFromPath());
   const skipUrlSyncRef = useRef(false);
   const [routeReady, setRouteReady] = useState(false);
+  const [chatModels, setChatModels] = useState<ChatModelOption[]>([]);
   const [modelKey, setModelKeyState] = useState(() => {
-    const stored = localStorage.getItem(CHAT_MODEL_STORAGE_KEY);
-    if (stored && findChatModelByKey(stored)) return stored;
-    return DEFAULT_CHAT_MODEL_KEY;
+    const stored = readStoredModelName();
+    return stored ? resolveModelKey(stored) : "";
   });
 
-  const modelName = useMemo(() => resolveChatModelName(modelKey), [modelKey]);
+  const modelName = useMemo(
+    () => resolveChatModelName(modelKey, chatModels) || readStoredModelName() || DEFAULT_MODEL,
+    [modelKey, chatModels],
+  );
 
-  const setModelKey = useCallback((key: string) => {
-    setModelKeyState(key);
-    localStorage.setItem(CHAT_MODEL_STORAGE_KEY, key);
-    syncChatModelName.write(resolveChatModelName(key));
+  useEffect(() => {
+    const stored = readStoredModelName();
+    if (stored) syncChatModelName.write(stored);
+  }, []);
+
+  const setModelKey = useCallback(
+    (key: string) => {
+      const name = resolveChatModelName(key, chatModels);
+      setModelKeyState(key);
+      if (name) {
+        writeStoredModelName(name);
+        syncChatModelName.write(name);
+      }
+    },
+    [chatModels],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAvailableModelIds()
+      .then((ids) => {
+        if (cancelled || ids.length === 0) return;
+
+        const merged = mergeChatModels(ids);
+        setChatModels(merged);
+
+        const stored = readStoredModelName();
+        const matched = stored ? merged.find((item) => item.modelName === stored) : undefined;
+        const selected = matched ?? merged[0];
+        const key = getChatModelKey(selected);
+
+        setModelKeyState(key);
+        writeStoredModelName(selected.modelName);
+        syncChatModelName.write(selected.modelName);
+      })
+      .catch(() => {
+        // 上游不可用时沿用 localStorage 中的 modelName
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const {
@@ -89,6 +128,20 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  const patchConversationGenerating = useCallback(
+    (key: string, active: boolean) => {
+      const current = conversationsRef.current.find((item) => item.key === key);
+      if (!current || !!current.generating === active) return;
+      setConversation(key, { ...current, generating: active });
+    },
+    [setConversation],
+  );
+
+  useEffect(() => {
+    registerGeneratingListener(patchConversationGenerating);
+    return () => registerGeneratingListener(undefined);
+  }, [patchConversationGenerating]);
 
   useEffect(() => {
     activeConversationKeyRef.current = activeConversationKey;
@@ -154,28 +207,15 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         setConversations(
           mergeServerAndLocalConversations(list, localConversationsRef.current),
         );
-
-        const routeSessionId = routeSessionIdRef.current;
-        if (routeSessionId && !findConversationBySessionId(list, routeSessionId)) {
-          try {
-            await fetchMessageList(routeSessionId);
-          } catch {
-            if (!cancelled) {
-              messageApi.error("会话不存在或已删除");
-              routeSessionIdRef.current = null;
-              setActiveConversationKey("");
-            }
-          }
-        }
       } catch {
-        if (!cancelled) messageApi.error("加载会话列表失败");
+        if (!cancelled) messageApi.error(locale.loadSessionListFailed);
       }
     };
     load();
     return () => {
       cancelled = true;
     };
-  }, [messageApi, setConversations, setActiveConversationKey]);
+  }, [messageApi, setConversations]);
 
   const upsertLocalConversation = useCallback(
     (conversation: Conversation) => {
@@ -198,7 +238,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         label: current.label || "",
         ...patch,
         lastMessageTime,
-        group: current.pinned ? "置顶" : getConversationGroupByTime(lastMessageTime),
+        group: current.pinned ? locale.pinned : getConversationGroupByTime(lastMessageTime),
       });
     },
     [setConversation],
@@ -206,6 +246,9 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
 
   const chatConversationKey =
     activeConversationKey || routeSessionIdRef.current || draftChatKey;
+
+  const isLocalSession = (sessionId: string) =>
+    localConversationsRef.current.some((item) => item.key === sessionId);
 
   useEffect(() => {
     createDeepSeekChatProvider(chatConversationKey, {
@@ -224,6 +267,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     queueRequest,
     onReload: reloadMessage,
     setMessage,
+    setMessages,
     removeMessage,
   } = useXChat<AppChatMessage>({
     provider: createDeepSeekChatProvider(chatConversationKey, {
@@ -243,10 +287,9 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         return [];
       }
       try {
-        const turns = await fetchMessageList(conversationKey);
-        return turnsToChatMessageInfos(turns) as DefaultMessageInfo<AppChatMessage>[];
+        return await fetchFirstHistoryPage(conversationKey);
       } catch {
-        messageApi.error("加载历史消息失败");
+        messageApi.error(locale.loadHistoryFailed);
         return [];
       }
     },
@@ -270,6 +313,13 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     messagesRef.current = messages;
   }, [messages]);
 
+  const loadMoreHistory = useCallback(() => {
+    if (!chatConversationKey || isLocalSession(chatConversationKey)) return;
+    appendHistoryPage(chatConversationKey, setMessages, () =>
+      messageApi.error(locale.loadMoreHistoryFailed),
+    );
+  }, [chatConversationKey, messageApi, setMessages]);
+
   const serverStreamingMessageId = useMemo(() => {
     if (isRequesting) return null;
     const streaming = [...messages]
@@ -285,7 +335,10 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
   useEffect(() => {
     if (!activeConversationKey || !serverStreamingMessageId || isDefaultMessagesRequesting) return;
 
+    const sessionId = activeConversationKey;
     const messageId = serverStreamingMessageId;
+    patchConversationGenerating(sessionId, true);
+
     const streamingMsg = messagesRef.current.find((item) => item.id === messageId);
     const initialText =
       typeof streamingMsg?.message.content === "string"
@@ -296,7 +349,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
 
     const applyFinalBuffer = async () => {
       try {
-        const buffer = await fetchStreamBuffer(activeConversationKey, messageId);
+        const buffer = await fetchStreamBuffer(sessionId, messageId);
         const status = assistantStatusFromStreamBuffer(buffer.eventType, buffer.text);
         setMessage(messageId, (msg) => ({
           status,
@@ -308,11 +361,13 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         }));
       } catch {
         setMessage(messageId, (msg) => ({ ...msg, status: "success" }));
+      } finally {
+        patchConversationGenerating(sessionId, false);
       }
     };
 
     subscribeStreamBuffer(
-      activeConversationKey,
+      sessionId,
       messageId,
       initialText,
       {
@@ -336,8 +391,15 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
 
     return () => {
       ac.abort();
+      patchConversationGenerating(sessionId, false);
     };
-  }, [activeConversationKey, serverStreamingMessageId, isDefaultMessagesRequesting, setMessage]);
+  }, [
+    activeConversationKey,
+    serverStreamingMessageId,
+    isDefaultMessagesRequesting,
+    patchConversationGenerating,
+    setMessage,
+  ]);
 
   const handleReload = useCallback(
     (
@@ -347,12 +409,12 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     ) => {
       const msgInfo = messages.find((item) => item.id === id);
       if (!msgInfo) {
-        messageApi.error("未找到消息");
+        messageApi.error(locale.messageNotFound);
         return;
       }
       const { messageId, requestId, responseId, modelName: msgModelName } = msgInfo.message;
       if (!messageId || !requestId || !responseId) {
-        messageApi.error("重新生成缺少消息标识");
+        messageApi.error(locale.regenerateMissingId);
         return;
       }
       reloadMessage(
@@ -377,7 +439,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
       try {
         await submitFeedback({ sessionId: activeConversationKey, messageId, feedbackType });
       } catch {
-        messageApi.error("提交反馈失败");
+        messageApi.error(locale.submitFeedbackFailed);
       }
     },
     [activeConversationKey, messageApi],
@@ -392,7 +454,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
       try {
         await abortChat({ sessionId: activeConversationKey, messageId });
       } catch {
-        messageApi.error("停止生成失败");
+        messageApi.error(locale.stopGenerationFailed);
       }
     }
     abort();
@@ -452,7 +514,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
             setActiveConversationKey(remaining[0]?.key || "");
           }
         } catch {
-          messageApi.error("删除会话失败");
+          messageApi.error(locale.deleteSessionFailed);
           throw new Error("delete failed");
         }
       })();
@@ -464,7 +526,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     async (key: string, title: string) => {
       const nextTitle = title.trim().slice(0, 15);
       if (!nextTitle) {
-        messageApi.error("请输入会话名称");
+        messageApi.error(locale.enterSessionName);
         return false;
       }
       try {
@@ -475,7 +537,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
         }
         return true;
       } catch {
-        messageApi.error("重命名失败");
+        messageApi.error(locale.renameFailed);
         return false;
       }
     },
@@ -492,7 +554,7 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
             ...current,
             pinned,
             group: pinned
-              ? "置顶"
+              ? locale.pinned
               : getConversationGroupByTime(current.lastMessageTime),
           });
         }
@@ -588,8 +650,10 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     messages,
     isRequesting,
     isDefaultMessagesRequesting,
+    loadMoreHistory,
     modelKey,
     modelName,
+    chatModels,
     setModelKey,
     onRequest,
     onReload: handleReload,
