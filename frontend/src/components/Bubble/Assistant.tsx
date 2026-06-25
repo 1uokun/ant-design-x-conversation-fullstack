@@ -1,7 +1,6 @@
 import { GlobalOutlined, SyncOutlined } from "@ant-design/icons";
 import { BubbleListProps, ThoughtChainItemProps } from "@ant-design/x";
 import { Actions, ThoughtChain } from "@ant-design/x";
-import { Pagination } from "antd";
 import React from "react";
 import locale from "../../_utils/local";
 import type { AppChatMessage } from "../../hooks/useConversationChat";
@@ -93,12 +92,13 @@ const Footer: React.FC<{
               }
             },
           },
-          {
-            key: "pagination",
-            actionRender: (
-              <Pagination simple={{ readOnly: true }} total={1} pageSize={1} />
-            ),
-          },
+          // TODO: 版本功能待实现，目前是直接覆盖
+          // {
+          //   key: "pagination",
+          //   actionRender: (
+          //     <Pagination simple={{ readOnly: true }} total={1} pageSize={1} />
+          //   ),
+          // },
         ]
       : []),
   ];
