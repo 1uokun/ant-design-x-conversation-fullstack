@@ -1,12 +1,13 @@
 import { message } from "antd";
 import { createStyles } from "antd-style";
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import "@ant-design/x-markdown/themes/light.css";
 import "@ant-design/x-markdown/themes/dark.css";
 import { BubbleListRef } from "@ant-design/x/es/bubble";
 import { ChatContext } from "./components/ChatContext";
 import ChatList from "./components/ChatList";
-import ConversationSide from "./components/Conversations";
+import ChatWelcome from "./components/Welcome";
+import ConversationSide, { SIDEBAR_WIDTH } from "./components/Conversations";
 import ChatSender from "./components/Sender";
 import ModelSelector from "./components/ModelSelector";
 import { useConversationChat } from "./hooks/useConversationChat";
@@ -32,9 +33,20 @@ const useStyle = createStyles(({ token, css }) => ({
       Arial,
       sans-serif;
   `,
+  sideWrapper: css`
+    flex-shrink: 0;
+    width: ${SIDEBAR_WIDTH}px;
+    overflow: hidden;
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  `,
+  sideWrapperCollapsed: css`
+    width: 0;
+    pointer-events: none;
+  `,
   chat: css`
     height: 100%;
-    width: calc(100% - 256px);
+    flex: 1;
+    min-width: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -43,8 +55,9 @@ const useStyle = createStyles(({ token, css }) => ({
 }));
 
 const Independent: React.FC = () => {
-  const { styles } = useStyle();
+  const { styles, cx } = useStyle();
   const [className] = useMarkdownTheme();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const listRef = useRef<BubbleListRef>(null);
 
@@ -100,36 +113,48 @@ const Independent: React.FC = () => {
     >
       {contextHolder}
       <div className={styles.layout}>
-        <ConversationSide
-          conversations={conversations}
-          activeConversationKey={activeConversationKey}
-          onSelect={selectConversation}
-          onCreate={handleCreateConversation}
-          onDelete={handleDeleteConversation}
-          onRename={handleRenameConversation}
-          onTogglePin={handleTogglePin}
-        />
+        <div
+          className={cx(
+            styles.sideWrapper,
+            sidebarCollapsed && styles.sideWrapperCollapsed,
+          )}
+          aria-hidden={sidebarCollapsed}
+        >
+          <ConversationSide
+            conversations={conversations}
+            activeConversationKey={activeConversationKey}
+            onSelect={selectConversation}
+            onCreate={handleCreateConversation}
+            onDelete={handleDeleteConversation}
+            onRename={handleRenameConversation}
+            onTogglePin={handleTogglePin}
+            onToggleCollapse={() => setSidebarCollapsed(true)}
+          />
+        </div>
         <div className={styles.chat}>
           <ModelSelector
             value={modelKey}
             onChange={setModelKey}
             disabled={isRequesting}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(false)}
           />
           <ChatList
             listRef={listRef}
             isDefaultMessagesRequesting={isDefaultMessagesRequesting}
             messages={messages}
             className={className}
-            onSubmit={onSubmit}
             onEditUserMessage={handleEditUserMessageWithScroll}
             onCancelUserMessageEdit={handleCancelUserMessageEdit}
           />
-          <ChatSender
-            activeConversationKey={activeConversationKey}
-            isRequesting={isRequesting}
-            onSubmit={onSubmit}
-            onCancel={handleAbort}
-          />
+          <ChatWelcome visible={!activeConversationKey}>
+            <ChatSender
+              activeConversationKey={activeConversationKey}
+              isRequesting={isRequesting}
+              onSubmit={onSubmit}
+              onCancel={handleAbort}
+            />
+          </ChatWelcome>
         </div>
       </div>
     </ChatContext.Provider>

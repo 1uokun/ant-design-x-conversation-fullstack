@@ -1,11 +1,10 @@
 import type { BubbleListProps } from "@ant-design/x";
 import { Bubble } from "@ant-design/x";
 import type { DefaultMessageInfo } from "@ant-design/x-sdk";
-import { Flex } from "antd";
+import { Spin } from "antd";
 import { createStyles } from "antd-style";
 import React, { useMemo } from "react";
 import { BubbleListRef } from "@ant-design/x/es/bubble";
-import locale from "../_utils/local";
 import type { AppChatMessage } from "../hooks/useConversationChat";
 import { getAssistantRole } from "./BubbleAssistant";
 import {
@@ -14,7 +13,6 @@ import {
   getEditableText,
   isLastRoundComplete,
 } from "./BubbleUser";
-import ChatWelcome from "./Welcome";
 
 const USER_MESSAGE_EDIT_MAX_HEIGHT = 150;
 
@@ -57,7 +55,6 @@ export type ChatListProps = {
   isDefaultMessagesRequesting: boolean;
   messages?: DefaultMessageInfo<AppChatMessage>[];
   className: string;
-  onSubmit: (val: string) => void;
   onEditUserMessage?: (messageKey: string | number, content: string) => void;
   onCancelUserMessageEdit?: (messageKey: string | number) => void;
 };
@@ -67,13 +64,15 @@ const ChatList: React.FC<ChatListProps> = ({
   isDefaultMessagesRequesting,
   messages,
   className,
-  onSubmit,
   onEditUserMessage,
   onCancelUserMessageEdit,
 }) => {
   const { styles } = useStyle();
 
-  const lastMessageKey = useMemo(() => messages?.at(-1)?.id ?? null, [messages]);
+  const lastMessageKey = useMemo(
+    () => messages?.at(-1)?.id ?? null,
+    [messages],
+  );
   const lastUserMessageKey = useMemo(
     () => findLastUserMessageKey(messages),
     [messages],
@@ -106,41 +105,36 @@ const ChatList: React.FC<ChatListProps> = ({
     ],
   );
 
+  if (!messages || messages.length === 0) return null;
+
   return (
     <div className={styles.chatList}>
-      {isDefaultMessagesRequesting ? (
-        <Flex align="center" justify="center" style={{ flex: 1 }}>
-          <span>{locale.noData}</span>
-        </Flex>
-      ) : messages?.length ? (
-        <Bubble.List
-          ref={listRef}
-          items={messages.map((i) => {
-            const editing = !!i.extraInfo?.editing;
-            let content = i.message.content;
-            if (i.message.role === "user" && editing) {
-              content = getEditableText(content);
-            }
-            return {
-              ...i.message,
-              content,
-              key: i.id!,
-              status: i.status,
-              loading: i.status === "loading",
-              streaming: i.status === "updating",
-              extraInfo: {
-                ...i.extraInfo,
-                feedback:
-                  i.extraInfo?.feedback ??
-                  feedbackTypeToActionValue(i.message.feedbackType),
-              },
-            };
-          })}
-          role={role}
-        />
-      ) : (
-        <ChatWelcome onSubmit={onSubmit} />
-      )}
+      <Spin spinning={isDefaultMessagesRequesting} />
+      <Bubble.List
+        ref={listRef}
+        items={messages.map((i) => {
+          const editing = !!i.extraInfo?.editing;
+          let content = i.message.content;
+          if (i.message.role === "user" && editing) {
+            content = getEditableText(content);
+          }
+          return {
+            ...i.message,
+            content,
+            key: i.id!,
+            status: i.status,
+            loading: i.status === "loading",
+            streaming: i.status === "updating",
+            extraInfo: {
+              ...i.extraInfo,
+              feedback:
+                i.extraInfo?.feedback ??
+                feedbackTypeToActionValue(i.message.feedbackType),
+            },
+          };
+        })}
+        role={role}
+      />
     </div>
   );
 };

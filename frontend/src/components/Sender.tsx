@@ -144,7 +144,7 @@ const ChatSender: React.FC<ChatSenderProps> = ({
         allowSpeech
         placeholder={locale.askOrInputUseSkills}
       />
-      <div className={styles.disclaimer}>{locale.aiContentDisclaimer}</div>
+      {activeConversationKey && <div className={styles.disclaimer}>{locale.aiContentDisclaimer}</div>}
     </Flex>
   );
 };

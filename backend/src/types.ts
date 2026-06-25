@@ -78,6 +78,14 @@ export type MessageTurnDto = {
   modifyTime?: string;
 };
 
+/** GET /chat/stream-buffer 轻量响应 */
+export type StreamBufferDto = {
+  messageId: string;
+  eventType: number;
+  text: string;
+  feedbackType: "good" | "bad" | null;
+};
+
 export type ChatRequestBody = {
   sessionId: string;
   messageId: string;

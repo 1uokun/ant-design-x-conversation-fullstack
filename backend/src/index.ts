@@ -11,6 +11,8 @@ import {
 } from "./db";
 import { EventType } from "./constants";
 import { handleChatAbort, handleChatStream } from "./services/chat";
+import { getStreamBuffer } from "./services/getStreamBuffer";
+import { handleStreamBufferSubscribe } from "./services/subscribeStreamBuffer";
 import { processChatStreamQueueMessage } from "./services/streamRunner";
 import { readAll } from "./services/streamBuffer";
 import type {
@@ -113,6 +115,29 @@ app.post("/api/v1/chat/abort", async (c) => {
 
   await handleChatAbort(c.env, body.sessionId, body.messageId);
   return jsonOk(true);
+});
+
+app.get("/api/v1/chat/stream-buffer", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const messageId = c.req.query("messageId");
+  if (!sessionId || !messageId) {
+    return jsonError("sessionId / messageId 不能为空");
+  }
+
+  const accept = c.req.header("Accept") ?? "";
+  if (accept.includes("text/event-stream")) {
+    const offset = Number(c.req.query("offset") ?? "0");
+    return handleStreamBufferSubscribe(
+      c.env,
+      sessionId,
+      messageId,
+      Number.isFinite(offset) ? offset : 0,
+    );
+  }
+
+  const data = await getStreamBuffer(c.env, sessionId, messageId);
+  if (!data) return jsonError("消息不存在", 404);
+  return jsonOk(data);
 });
 
 app.post("/api/v1/chat", async (c) => {

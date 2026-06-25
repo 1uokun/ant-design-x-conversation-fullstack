@@ -7,9 +7,9 @@ import {
   createChatRoundMeta,
   deleteMessage,
   deleteSession,
-  EventType,
   fetchMessageList,
   fetchSessionList,
+  fetchStreamBuffer,
   submitFeedback,
   updateSession,
   type Conversation,
@@ -33,9 +33,11 @@ import {
   getConversationGroupSortKey,
   mergeServerAndLocalConversations,
   sessionToConversation,
+  assistantStatusFromStreamBuffer,
   turnsToChatMessageInfos,
 } from "./adapters";
 import { createDeepSeekChatProvider, type ChatProviderInput } from "./provider";
+import { subscribeStreamBuffer } from "./subscribeStreamBuffer";
 import { syncChatModelName } from "./model-sync";
 import type { AppChatMessage } from "./types";
 
@@ -222,7 +224,6 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     queueRequest,
     onReload: reloadMessage,
     setMessage,
-    setMessages,
     removeMessage,
   } = useXChat<AppChatMessage>({
     provider: createDeepSeekChatProvider(chatConversationKey, {
@@ -264,44 +265,79 @@ export function useConversationChat({ messageApi }: UseConversationChatOptions) 
     },
   });
 
-  const hasServerSideStreaming = useMemo(
-    () =>
-      !isRequesting &&
-      messages.some(
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const serverStreamingMessageId = useMemo(() => {
+    if (isRequesting) return null;
+    const streaming = [...messages]
+      .reverse()
+      .find(
         (item) =>
           item.message.role === "assistant" &&
           (item.status === "loading" || item.status === "updating"),
-      ),
-    [isRequesting, messages],
-  );
+      );
+    return streaming?.message?.messageId ?? null;
+  }, [isRequesting, messages]);
 
   useEffect(() => {
-    if (!activeConversationKey || !hasServerSideStreaming) return;
+    if (!activeConversationKey || !serverStreamingMessageId || isDefaultMessagesRequesting) return;
 
-    let cancelled = false;
-    const poll = async () => {
-      if (cancelled) return;
+    const messageId = serverStreamingMessageId;
+    const streamingMsg = messagesRef.current.find((item) => item.id === messageId);
+    const initialText =
+      typeof streamingMsg?.message.content === "string"
+        ? streamingMsg.message.content
+        : (streamingMsg?.message.content?.text ?? "");
+
+    const ac = new AbortController();
+
+    const applyFinalBuffer = async () => {
       try {
-        const turns = await fetchMessageList(activeConversationKey);
-        if (cancelled) return;
-        setMessages(
-          turnsToChatMessageInfos(turns) as DefaultMessageInfo<AppChatMessage>[] as never,
-        );
-        const stillStreaming = turns.some((turn) => turn.eventType === EventType.STREAMING);
-        if (!stillStreaming) return;
+        const buffer = await fetchStreamBuffer(activeConversationKey, messageId);
+        const status = assistantStatusFromStreamBuffer(buffer.eventType, buffer.text);
+        setMessage(messageId, (msg) => ({
+          status,
+          message: {
+            ...msg.message,
+            content: buffer.text,
+            feedbackType: buffer.feedbackType ?? undefined,
+          },
+        }));
       } catch {
-        // 轮询失败时静默重试
-      }
-      if (!cancelled) {
-        window.setTimeout(poll, 2000);
+        setMessage(messageId, (msg) => ({ ...msg, status: "success" }));
       }
     };
 
-    poll();
+    subscribeStreamBuffer(
+      activeConversationKey,
+      messageId,
+      initialText,
+      {
+        onUpdate: (text) => {
+          setMessage(messageId, (msg) => ({
+            status: text ? "updating" : "loading",
+            message: { ...msg.message, content: text },
+          }));
+        },
+        onDone: () => {
+          void applyFinalBuffer();
+        },
+        onError: () => {
+          void applyFinalBuffer();
+        },
+      },
+      ac.signal,
+    ).catch(() => {
+      if (!ac.signal.aborted) void applyFinalBuffer();
+    });
+
     return () => {
-      cancelled = true;
+      ac.abort();
     };
-  }, [activeConversationKey, hasServerSideStreaming, setMessages]);
+  }, [activeConversationKey, serverStreamingMessageId, isDefaultMessagesRequesting, setMessage]);
 
   const handleReload = useCallback(
     (

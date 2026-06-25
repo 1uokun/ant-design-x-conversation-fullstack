@@ -154,6 +154,8 @@ Base path: `/api/v1`
 | 会话列表 | GET  | `/api/v1/session/page/list` |
 | 消息列表 | GET  | `/api/v1/session/msg/list`  |
 | 流式对话 | POST | `/api/v1/chat`              |
+| 流式缓冲 | GET  | `/api/v1/chat/stream-buffer`（SSE；`Accept: application/json` 查终态） |
+| 停止生成 | POST | `/api/v1/chat/abort`        |
 
 统一响应外壳（非 SSE 接口）：
 
@@ -338,7 +340,11 @@ data: 错误描述
 
 **重要**：前端点击「停止」时，**必须先调此接口，再断开 SSE**。不可仅靠断开连接来 abort。
 
-### 2.5 消息反馈
+### 2.5 刷新恢复
+
+**GET** `/api/v1/chat/stream-buffer?sessionId=&messageId=&offset=` — `Accept: text/event-stream` 从 KV 续推 SSE（`offset` = 已有文本长度）；结束后 `Accept: application/json` 查一次终态。仅 `setMessage` 更新当前流式条。
+
+### 2.6 消息反馈
 
 **POST** `/api/v1/session/msg/feedback`
 
@@ -410,7 +416,7 @@ data: 错误描述
 
 | 场景          | 前端行为                               | 后端行为                                                   |
 | ------------- | -------------------------------------- | ---------------------------------------------------------- |
-| 刷新页面      | 仅断开 SSE                             | **继续**读上游，finalize(COMPLETE)，完整落库               |
+| 刷新页面      | GET `stream-buffer` SSE 续订 KV       | **继续**写 KV，finalize 落库                               |
 | 点击停止      | 先 POST /api/v1/chat/abort，再断开 SSE | 检测 abort 标记，停止上游，finalize(ABORT)，保存已生成部分 |
 | SSE 超时 120s | -                                      | finalize(ABORT)                                            |
 
@@ -424,7 +430,7 @@ finalize-lock:{sessionId}:{messageId} # SETNX 锁, TTL 30s
 abort:{sessionId}:{messageId}         # 主动停止标记, TTL 30min
 ```
 
-**Cloudflare Workers 落地**：`STREAM_KV` 对应 Redis 缓冲；`CHAT_QUEUE`（`chat-stream`）对应异步线程；`streamRunner` 读上游写 KV，`pollingSse` 轮询 KV 推 SSE。首次部署需 `wrangler queues create chat-stream`。
+**Cloudflare Workers 落地**：`STREAM_KV` = 缓冲；`CHAT_QUEUE` = 异步读上游。部署前 `wrangler queues create chat-stream`。
 
 ---
 
@@ -497,12 +503,9 @@ async function sendMessage(text: string) {
 
 ### 4.4 刷新页面恢复
 
-进入会话时 `GET /api/v1/session/msg/list?sessionId={id}`，并对仍在生成的轮次每 2s 轮询一次：
-
-- `eventType === 0` → 显示 loading / 流式更新（`msg/list` 附带 KV 中已生成片段）
-- `eventType === 1` → 显示完整回答
-- `eventType === 2` → 显示已生成部分 +「已停止」
-- `eventType === 3` → 显示错误 + 重试按钮
+1. `GET msg/list` 加载历史（`eventType=0` 附带 KV 片段）
+2. `GET stream-buffer` SSE 续订（`offset` = 已有长度），仅 `setMessage` 更新流式条
+3. `[DONE]` 后 JSON 查终态；`eventType`：1 完整 / 2 已停止 / 3 错误
 
 ---
 
@@ -523,7 +526,7 @@ async function sendMessage(text: string) {
 - [ ] 发送消息：前端生成 3 个 message 相关 UUID，乐观渲染，SSE 流式显示
 - [ ] 流式结束：`agent_content` 写入 assistant 内容，`eventType` 变为 1
 - [ ] 停止生成：abort 接口 + 部分落库，`eventType` 变为 2
-- [ ] 刷新页面：SSE 断开后后端仍完成落库，`eventType` 变为 1（不是 0）
+- [ ] 刷新页面：后端继续落库；前端 SSE 续订 `stream-buffer`，`eventType` 最终不为 0
 - [ ] 重新生成：复用 ID，替换 assistant 内容，`eventType` 1→0→1
 - [ ] 会话列表：按 `lastMessageTime` 排序，支持置顶
 - [ ] 消息反馈：good/bad 写入 `feedbackType`

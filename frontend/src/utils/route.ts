@@ -5,9 +5,15 @@ function escapeRegExp(value: string): string {
 }
 
 /** 从当前 pathname 解析 sessionId；`/chat` 或根路径返回 null */
-export function getSessionIdFromPath(pathname = window.location.pathname): string | null {
+export function getSessionIdFromPath(
+  pathname = window.location.pathname,
+): string | null {
   const chatRoot = new RegExp(`^${escapeRegExp(BASE_PATH)}/chat/?$`);
-  if (chatRoot.test(pathname) || pathname === BASE_PATH || pathname === `${BASE_PATH}/`) {
+  if (
+    chatRoot.test(pathname) ||
+    pathname === BASE_PATH ||
+    pathname === `${BASE_PATH}/`
+  ) {
     return null;
   }
 
@@ -27,7 +33,7 @@ export function buildChatPath(sessionId?: string | null): string {
 
 export function syncChatPath(
   sessionId: string | null | undefined,
-  method: "push" | "replace" = "push",
+  method: "push" | "replace" = "replace",
 ): void {
   const nextPath = buildChatPath(sessionId);
   if (window.location.pathname === nextPath) return;
@@ -43,5 +49,5 @@ export function ensureChatRootPath(): void {
   if (getSessionIdFromPath()) return;
   const chatRoot = buildChatPath();
   if (window.location.pathname === chatRoot) return;
-  syncChatPath(null, "replace");
+  syncChatPath(null);
 }

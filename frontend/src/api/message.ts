@@ -73,6 +73,14 @@ export type MessageTurn = {
   modifyTime?: string;
 };
 
+/** GET /chat/stream-buffer 轻量响应 */
+export type StreamBuffer = {
+  messageId: string;
+  eventType: EventTypeValue;
+  text: string;
+  feedbackType: "good" | "bad" | null;
+};
+
 /** Ant Design X Sessions 列表项 */
 export type Conversation = {
   key: string;
@@ -240,6 +248,18 @@ export async function fetchMessageList(sessionId: string) {
     throw new Error(res.message ?? "fetchMessageList failed");
   }
   return res.data.list;
+}
+
+/** 单条流式终态（SSE 结束后查一次 eventType） */
+export async function fetchStreamBuffer(sessionId: string, messageId: string) {
+  const res = await requestJson<StreamBuffer>(
+    `/chat/stream-buffer?sessionId=${encodeURIComponent(sessionId)}&messageId=${encodeURIComponent(messageId)}`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message ?? "fetchStreamBuffer failed");
+  }
+  return res.data;
 }
 
 /** 删除一轮对话 */

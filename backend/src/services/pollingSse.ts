@@ -20,9 +20,10 @@ export function createKvPollingSseStream(
   env: Env,
   sessionId: string,
   messageId: string,
+  options?: { textOffset?: number },
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  let lastSentLen = 0;
+  let lastSentLen = Math.max(0, options?.textOffset ?? 0);
   let cancelled = false;
 
   return new ReadableStream({

@@ -113,6 +113,17 @@ const eventTypeToStatus = (eventType: number): MessageStatus => {
   }
 };
 
+/** 根据 stream-buffer 响应计算 assistant 气泡状态 */
+export function assistantStatusFromStreamBuffer(
+  eventType: number,
+  text: string,
+): MessageStatus {
+  if (eventType === EventType.STREAMING) {
+    return text ? "updating" : "loading";
+  }
+  return eventTypeToStatus(eventType);
+}
+
 export function turnsToChatMessageInfos(turns: MessageTurn[]): ChatMessageInfo[] {
   return turns.flatMap((turn) => {
     const roundMeta = {

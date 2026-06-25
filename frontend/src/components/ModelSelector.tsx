@@ -1,5 +1,6 @@
 import { CheckOutlined, DownOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Flex, Tag, Typography } from "antd";
+import { createStyles } from "antd-style";
 import React, { useMemo } from "react";
 import {
   CHAT_MODELS,
@@ -7,6 +8,30 @@ import {
   getChatModelKey,
   type ChatModelTag,
 } from "../config/chat-models";
+import SidebarToggle from "./SidebarToggle";
+
+const useStyle = createStyles(({ css }) => ({
+  sidebarToggleSlot: css`
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    width: 0;
+    height: 40px;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.2s ease;
+  `,
+  sidebarToggleVisible: css`
+    width: 18px;
+    opacity: 1;
+    pointer-events: auto;
+  `,
+}));
 
 const TAG_LABEL: Record<ChatModelTag, string> = {
   default: "默认",
@@ -24,13 +49,18 @@ export type ModelSelectorProps = {
   value: string;
   onChange: (modelKey: string) => void;
   disabled?: boolean;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 };
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   value,
   onChange,
   disabled,
+  sidebarCollapsed = false,
+  onToggleSidebar,
 }) => {
+  const { styles, cx } = useStyle();
   const [open, setOpen] = React.useState(false);
   const selected = useMemo(
     () => findChatModelByKey(value) ?? CHAT_MODELS[0],
@@ -40,11 +70,22 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   return (
     <Flex
       align="center"
+      gap={4}
       style={{
         height: 56,
-        paddingLeft: 4
+        padding: "0 15px",
       }}
     >
+      {onToggleSidebar ? (
+        <div
+          className={cx(
+            styles.sidebarToggleSlot,
+            sidebarCollapsed && styles.sidebarToggleVisible,
+          )}
+        >
+          <SidebarToggle collapsed onToggle={onToggleSidebar} />
+        </div>
+      ) : null}
       <Dropdown
         open={open}
         onOpenChange={setOpen}

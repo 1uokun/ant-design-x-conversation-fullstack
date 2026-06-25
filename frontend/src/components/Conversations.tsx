@@ -10,11 +10,15 @@ import { createStyles } from "antd-style";
 import React, { useState } from "react";
 import locale from "../_utils/local";
 import type { Conversation } from "../api/message";
+import SidebarToggle from "./SidebarToggle";
+
+export const SIDEBAR_WIDTH = 256;
 
 const useStyle = createStyles(({ token, css }) => ({
   side: css`
     background: ${token.colorBgLayout}80;
-    width: 256px;
+    width: ${SIDEBAR_WIDTH}px;
+    min-width: ${SIDEBAR_WIDTH}px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -22,13 +26,17 @@ const useStyle = createStyles(({ token, css }) => ({
     box-sizing: border-box;
   `,
   logo: css`
+    height: 56px;
     display: flex;
     align-items: center;
-    justify-content: start;
-    padding: 0 24px;
+    justify-content: space-between;
     box-sizing: border-box;
+  `,
+  logoBrand: css`
+    display: flex;
+    align-items: center;
     gap: 8px;
-    margin: 24px 0;
+    min-width: 0;
 
     span {
       font-weight: bold;
@@ -62,6 +70,7 @@ export type ConversationSideProps = {
   onDelete: (key: string) => void;
   onRename: (key: string, name: string) => Promise<boolean>;
   onTogglePin?: (key: string, pinned: boolean) => void;
+  onToggleCollapse: () => void;
 };
 
 const ConversationSide: React.FC<ConversationSideProps> = ({
@@ -72,6 +81,7 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
   onDelete,
   onRename,
   onTogglePin,
+  onToggleCollapse,
 }) => {
   const { styles } = useStyle();
   const [renameOpen, setRenameOpen] = useState(false);
@@ -111,14 +121,17 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
     <>
       <div className={styles.side}>
         <div className={styles.logo}>
-          <img
-            src="https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*eco6RrQhxbMAAAAAAAAAAAAADgCCAQ/original"
-            draggable={false}
-            alt="logo"
-            width={24}
-            height={24}
-          />
-          <span>Ant Design X</span>
+          <div className={styles.logoBrand}>
+            <img
+              src="https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*eco6RrQhxbMAAAAAAAAAAAAADgCCAQ/original"
+              draggable={false}
+              alt="logo"
+              width={24}
+              height={24}
+            />
+            <span>Ant Design X</span>
+          </div>
+          <SidebarToggle collapsed={false} onToggle={onToggleCollapse} />
         </div>
         <AntConversations
           creation={{
