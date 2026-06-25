@@ -13,10 +13,10 @@ import type {
 import { Modal } from "antd";
 import { createStyles } from "antd-style";
 import React from "react";
-import locale from "../_utils/local";
-import type { AppChatMessage } from "../hooks/useConversationChat";
-import { ChatContext } from "./ChatContext";
-import "./bubble-user.css";
+import locale from "../../_utils/local";
+import type { AppChatMessage } from "../../hooks/useConversationChat";
+import { ChatContext } from "../ChatContext";
+import "./styles/bubble-user.css";
 
 const COLLAPSED_HEIGHT = 80;
 const USER_BUBBLE_BG = "#ebf5ff";
@@ -227,7 +227,9 @@ const UserBubbleContent: React.FC<{
       extraInfo: {
         ...msg.extraInfo,
         userCanCollapse: overflow,
-        userCollapsed: overflow ? (msg.extraInfo?.userCollapsed ?? false) : undefined,
+        userCollapsed: overflow
+          ? (msg.extraInfo?.userCollapsed ?? false)
+          : undefined,
       },
     }));
   }, [text, id, context, extraInfo?.userCanCollapse, editing]);
@@ -255,7 +257,9 @@ const UserBubbleContent: React.FC<{
           </>
         )}
       </div>
-      {canCollapse && collapsed && !editing ? <div className={styles.fade} /> : null}
+      {canCollapse && collapsed && !editing ? (
+        <div className={styles.fade} />
+      ) : null}
     </div>
   );
 };

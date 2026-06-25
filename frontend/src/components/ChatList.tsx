@@ -6,13 +6,13 @@ import { createStyles } from "antd-style";
 import React, { useMemo } from "react";
 import { BubbleListRef } from "@ant-design/x/es/bubble";
 import type { AppChatMessage } from "../hooks/useConversationChat";
-import { getAssistantRole } from "./BubbleAssistant";
+import { getAssistantRole } from "./Bubble/Assistant";
 import {
   createUserRole,
   findLastUserMessageKey,
   getEditableText,
   isLastRoundComplete,
-} from "./BubbleUser";
+} from "./Bubble/User";
 
 const USER_MESSAGE_EDIT_MAX_HEIGHT = 150;
 

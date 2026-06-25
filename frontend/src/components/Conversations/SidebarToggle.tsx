@@ -1,7 +1,7 @@
 import { Tooltip } from "antd";
 import { createStyles } from "antd-style";
 import React from "react";
-import locale from "../_utils/local";
+import locale from "../../_utils/local";
 
 const PanelLeftOpenIcon = () => (
   <svg
@@ -63,7 +63,10 @@ export type SidebarToggleProps = {
   onToggle: () => void;
 };
 
-const SidebarToggle: React.FC<SidebarToggleProps> = ({ collapsed, onToggle }) => {
+const SidebarToggle: React.FC<SidebarToggleProps> = ({
+  collapsed,
+  onToggle,
+}) => {
   const { styles, cx } = useStyle();
   const title = collapsed ? locale.expandSidebar : locale.collapseSidebar;
 

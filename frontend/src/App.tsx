@@ -7,9 +7,11 @@ import { BubbleListRef } from "@ant-design/x/es/bubble";
 import { ChatContext } from "./components/ChatContext";
 import ChatList from "./components/ChatList";
 import ChatWelcome from "./components/Welcome";
-import ConversationSide, { SIDEBAR_WIDTH } from "./components/Conversations";
+import ConversationSide, {
+  SIDEBAR_WIDTH,
+} from "./components/Conversations/Conversations";
 import ChatSender from "./components/Sender";
-import ModelSelector from "./components/ModelSelector";
+import ModelSelector from "./components/Conversations/ModelSelector";
 import { useConversationChat } from "./hooks/useConversationChat";
 import { useMarkdownTheme } from "./hooks/useMarkdownTheme";
 
@@ -147,7 +149,9 @@ const Independent: React.FC = () => {
             onEditUserMessage={handleEditUserMessageWithScroll}
             onCancelUserMessageEdit={handleCancelUserMessageEdit}
           />
-          <ChatWelcome visible={!activeConversationKey}>
+          <ChatWelcome
+            visible={!activeConversationKey && !isDefaultMessagesRequesting}
+          >
             <ChatSender
               activeConversationKey={activeConversationKey}
               isRequesting={isRequesting}

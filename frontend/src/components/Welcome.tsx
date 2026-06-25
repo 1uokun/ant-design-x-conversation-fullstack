@@ -17,6 +17,7 @@ const useStyle = createStyles(({ token, css }) => ({
   expanded: css`
     flex-grow: 1;
     justify-content: center;
+    
   `,
   agentName: css`
     font-size: ${token.fontSizeHeading2}px;

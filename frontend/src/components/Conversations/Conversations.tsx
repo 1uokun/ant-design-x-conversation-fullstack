@@ -8,9 +8,9 @@ import { Conversations as AntConversations } from "@ant-design/x";
 import { Avatar, Button, Input, Modal } from "antd";
 import { createStyles } from "antd-style";
 import React, { useState } from "react";
-import locale from "../_utils/local";
-import type { Conversation } from "../api/message";
-import SidebarToggle from "./SidebarToggle";
+import locale from "../../_utils/local";
+import type { Conversation } from "../../api/message";
+import Logo from "./Logo";
 
 export const SIDEBAR_WIDTH = 256;
 
@@ -24,25 +24,6 @@ const useStyle = createStyles(({ token, css }) => ({
     flex-direction: column;
     padding: 0 12px;
     box-sizing: border-box;
-  `,
-  logo: css`
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-sizing: border-box;
-  `,
-  logoBrand: css`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-
-    span {
-      font-weight: bold;
-      color: ${token.colorText};
-      font-size: 16px;
-    }
   `,
   conversations: css`
     overflow-y: auto;
@@ -120,23 +101,8 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
   return (
     <>
       <div className={styles.side}>
-        <div className={styles.logo}>
-          <div className={styles.logoBrand}>
-            <img
-              src="https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*eco6RrQhxbMAAAAAAAAAAAAADgCCAQ/original"
-              draggable={false}
-              alt="logo"
-              width={24}
-              height={24}
-            />
-            <span>Ant Design X</span>
-          </div>
-          <SidebarToggle collapsed={false} onToggle={onToggleCollapse} />
-        </div>
+        <Logo onToggleCollapse={onToggleCollapse} onCreate={onCreate} />
         <AntConversations
-          creation={{
-            onClick: onCreate,
-          }}
           items={conversations.map(({ key, label, ...other }) => ({
             key,
             label:
@@ -152,7 +118,8 @@ const ConversationSide: React.FC<ConversationSideProps> = ({
           styles={{ item: { padding: "0 8px" } }}
           menu={(conversation) => {
             const pinned = Boolean(
-              conversations.find((item) => item.key === conversation.key)?.pinned,
+              conversations.find((item) => item.key === conversation.key)
+                ?.pinned,
             );
             return {
               items: [

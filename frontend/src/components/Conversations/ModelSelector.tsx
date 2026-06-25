@@ -7,7 +7,7 @@ import {
   findChatModelByKey,
   getChatModelKey,
   type ChatModelTag,
-} from "../config/chat-models";
+} from "../../config/chat-models";
 import SidebarToggle from "./SidebarToggle";
 
 const useStyle = createStyles(({ css }) => ({
